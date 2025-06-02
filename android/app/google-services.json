@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "512447164362",
+    "project_id": "denti-54d3c",
+    "storage_bucket": "denti-54d3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512447164362:android:511b4a321d0c38a4a62933",
+        "android_client_info": {
+          "package_name": "com.example.dental_ai_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYkPzkMNd6dWS4PMRE_FUsbyP-UCC2R54"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
