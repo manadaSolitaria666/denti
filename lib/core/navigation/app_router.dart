@@ -1,7 +1,6 @@
 // lib/core/navigation/app_router.dart
 import 'dart:async';
 import 'package:dental_ai_app/core/models/blog_post_model.dart';
-import 'package:dental_ai_app/core/providers/auth_provider.dart'; 
 import 'package:dental_ai_app/core/providers/user_data_provider.dart'; 
 import 'package:dental_ai_app/core/services/auth_service.dart';
 import 'package:dental_ai_app/features/auth/screens/login_screen.dart';

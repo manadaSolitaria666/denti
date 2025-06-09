@@ -1,8 +1,9 @@
-// lib/features/settings_reminders/screens/reminders_settings_screen.dart
+// lib/features/settings_reminders/screens/reminders_settings_screen.dart (Con instrucciones para Xiaomi)
 import 'package:dental_ai_app/core/providers/notification_provider.dart';
-import 'package:dental_ai_app/features/settings_reminders/widgets/reminder_option_widget.dart'; // Importar el nuevo widget
+import 'package:dental_ai_app/features/settings_reminders/widgets/reminder_option_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class RemindersSettingsScreen extends ConsumerWidget {
   const RemindersSettingsScreen({super.key});
@@ -10,37 +11,107 @@ class RemindersSettingsScreen extends ConsumerWidget {
   Future<void> _selectTime(BuildContext context, WidgetRef ref, TimeOfDay? initialTime) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: initialTime ?? const TimeOfDay(hour: 20, minute: 0), // Hora por defecto 8 PM
+      initialTime: initialTime ?? const TimeOfDay(hour: 20, minute: 0),
       helpText: 'SELECCIONA HORA PARA RECORDATORIO',
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
-      ref.read(notificationNotifierProvider.notifier).setReminderTime(picked);
+      await ref.read(notificationNotifierProvider.notifier).setReminderTime(picked);
     }
+  }
+  
+  // Widget helper modificado para no requerir un botón
+  Widget _buildPermissionWarningCard(BuildContext context, String text, {VoidCallback? onFix, String buttonText = 'ARREGLAR'}) {
+    return Card(
+      color: Colors.amber.shade100,
+      margin: const EdgeInsets.only(bottom: 12.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(text, style: TextStyle(color: Colors.amber.shade900)),
+            ),
+            if (onFix != null) ...[ // Solo mostrar el botón si se provee una acción
+              const SizedBox(width: 12),
+              TextButton(onPressed: onFix, child: Text(buttonText)),
+            ]
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationSettings = ref.watch(notificationNotifierProvider);
     final notificationNotifier = ref.read(notificationNotifierProvider.notifier);
+    final basicPermissionStatusAsync = ref.watch(notificationPermissionProvider);
+    final exactAlarmPermissionAsync = ref.watch(exactAlarmPermissionProvider);
+    final batteryOptimizationStatusAsync = ref.watch(batteryOptimizationProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ajustes y Recordatorios'),
-      ),
-      body: ListView(
+      body: ListView( 
         padding: const EdgeInsets.all(16.0),
         children: <Widget>[
+          // Verificador para el permiso BÁSICO de notificaciones
+          basicPermissionStatusAsync.when(
+            data: (status) {
+              if (status.isGranted) return const SizedBox.shrink();
+              return _buildPermissionWarningCard(
+                context,
+                status.isPermanentlyDenied 
+                  ? 'Los permisos de notificación están bloqueados. Habilítalos en los ajustes.' 
+                  : 'Para recibir recordatorios, necesitas permitir las notificaciones.',
+                onFix: openAppSettings
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (e, s) => Text('Error al verificar permisos: $e'),
+          ),
+
+          // Verificador para el permiso de ALARMAS EXACTAS
+          exactAlarmPermissionAsync.when(
+            data: (status) {
+              if (status.isGranted) return const SizedBox.shrink();
+              return _buildPermissionWarningCard(
+                context,
+                'Para asegurar la puntualidad, se necesita el permiso de "Alarmas y recordatorios".',
+                onFix: () async {
+                  await Permission.scheduleExactAlarm.request();
+                  ref.invalidate(exactAlarmPermissionProvider);
+                }
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (e, s) => Text('Error al verificar permiso de alarma: $e'),
+          ),
+          
+          // <<<--- INICIO DE CORRECCIÓN PARA XIAOMI ---
+          // Aviso sobre optimización de batería con instrucciones claras
+          batteryOptimizationStatusAsync.when(
+            data: (status) {
+              // Solo mostrar si el permiso NO está concedido (es decir, la optimización está activa)
+              if (status.isGranted) return const SizedBox.shrink();
+
+              // El botón se elimina porque request() no funciona en MIUI.
+              // En su lugar, se muestran instrucciones detalladas.
+              return _buildPermissionWarningCard(
+                context,
+                'Tu teléfono Xiaomi puede cerrar la app para ahorrar batería.\n\nPara asegurar que los recordatorios funcionen:\n1. Ve a Ajustes > Batería\n2. Toca el icono de engranaje (⚙️)\n3. "Ahorro de batería en aplic."\n4. Busca "Dental AI" y elige "Sin restricciones"',
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (e,s) => const SizedBox.shrink(),
+          ),
+          // --- FIN DE CORRECCIÓN ---
+          
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal:16.0, vertical: 8.0), // Ajustar padding interno de la Card
+              padding: const EdgeInsets.symmetric(horizontal:16.0, vertical: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -51,14 +122,6 @@ class RemindersSettingsScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      'Recibe notificaciones para recordar cepillarte los dientes y usar hilo dental.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   ReminderOptionWidget(
                     leadingIcon: notificationSettings.remindersEnabled
                         ? Icons.notifications_active_outlined
@@ -69,13 +132,19 @@ class RemindersSettingsScreen extends ConsumerWidget {
                     title: 'Activar Recordatorios',
                     trailing: Switch(
                       value: notificationSettings.remindersEnabled,
-                      onChanged: (bool value) {
-                        notificationNotifier.toggleReminders(value);
+                      onChanged: (bool value) async {
+                        await notificationNotifier.toggleReminders(value);
+                        ref.invalidate(notificationPermissionProvider);
+                        ref.invalidate(exactAlarmPermissionProvider);
+                        ref.invalidate(batteryOptimizationProvider); // Re-verificar
                       },
                       activeColor: Theme.of(context).colorScheme.primary,
                     ),
-                    onTap: () { // Para que el Switch sea el único punto de interacción para cambiar el valor
-                        notificationNotifier.toggleReminders(!notificationSettings.remindersEnabled);
+                    onTap: () async {
+                      await notificationNotifier.toggleReminders(!notificationSettings.remindersEnabled);
+                      ref.invalidate(notificationPermissionProvider);
+                      ref.invalidate(exactAlarmPermissionProvider);
+                      ref.invalidate(batteryOptimizationProvider); // Re-verificar
                     },
                   ),
                   const Divider(),
@@ -83,9 +152,6 @@ class RemindersSettingsScreen extends ConsumerWidget {
                     leadingIcon: Icons.access_time_outlined,
                     title: 'Hora del Recordatorio',
                     isEnabled: notificationSettings.remindersEnabled,
-                    iconColor: notificationSettings.remindersEnabled
-                        ? Theme.of(context).colorScheme.onSurface
-                        : Colors.grey,
                     trailing: Text(
                       notificationSettings.reminderTime?.format(context) ?? 'No establecida',
                       style: TextStyle(
@@ -101,33 +167,8 @@ class RemindersSettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ReminderOptionWidget( // Usando el widget para "Acerca de"
-              leadingIcon: Icons.info_outline,
-              title: 'Acerca de la App',
-              subtitle: 'Versión 1.0.0', // Puedes obtener esto dinámicamente
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
-              onTap: () {
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'Dental AI App',
-                  applicationVersion: '1.0.0', // Reemplaza con la versión real
-                  applicationLegalese: '© ${DateTime.now().year} Tu Nombre/Compañía. Todos los derechos reservados.',
-                  applicationIcon: const Icon(Icons.medical_services_outlined, size: 40), // Tu logo
-                  children: <Widget>[
-                    const SizedBox(height: 16),
-                    const Text('Esta aplicación utiliza Inteligencia Artificial para proporcionar análisis preliminares de salud dental. No reemplaza la consulta con un profesional dental calificado.'),
-                  ],
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
   }
 }
-

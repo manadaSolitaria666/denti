@@ -1,33 +1,34 @@
-// lib/core/utils/notification_util.dart
-import 'package:flutter/foundation.dart'; // Para kDebugMode
+// lib/core/utils/notification_util.dart (Sin cambios en esta versión)
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-// import 'package:flutter_native_timezone/flutter_native_timezone.dart'; // Opcional para mayor precisión de zona horaria
 
 class NotificationUtil {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  static const String _channelId = 'dental_ai_daily_reminders';
+  static const String _channelName = 'Recordatorios de Higiene';
+  static const String _channelDescription = 'Canal para recordatorios diarios de higiene bucal.';
+
   static Future<void> initialize() async {
     tz.initializeTimeZones();
-    // Opcional: Configurar la zona horaria local del dispositivo para mayor precisión
-    // try {
-    //   final String? localTimeZone = await FlutterNativeTimezone.getLocalTimezone();
-    //   if (localTimeZone != null && localTimeZone.isNotEmpty) {
-    //     tz.setLocalLocation(tz.getLocation(localTimeZone));
-    //   }
-    // } catch (e) {
-    //   if (kDebugMode) {
-    //     print('Error obteniendo la zona horaria local: $e');
-    //   }
-    // }
 
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: _channelDescription,
+      importance: Importance.max,
+    );
 
-    // Asegúrate de tener un ícono llamado 'app_icon.png' (o el nombre que uses)
-    // en android/app/src/main/res/drawable (o mipmap)
-    // Por ejemplo, @mipmap/ic_launcher es común.
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher'); 
 
@@ -36,7 +37,6 @@ class NotificationUtil {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      // onDidReceiveLocalNotification: onDidReceiveLocalNotification, // Para iOS < 10
     );
 
     const InitializationSettings initializationSettings = InitializationSettings(
@@ -47,52 +47,40 @@ class NotificationUtil {
     await _notificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
-      onDidReceiveBackgroundNotificationResponse: onDidReceiveBackgroundNotificationResponse, // Para manejar notificaciones en background
+      onDidReceiveBackgroundNotificationResponse: onDidReceiveBackgroundNotificationResponse,
     );
-
-    // Solicitar permisos en iOS explícitamente si es necesario (para iOS >= 10)
-    // FlutterLocalNotificationsPlugin >=9.0.0 maneja esto en initialize
-    // pero para versiones anteriores o para más control:
-    // await requestIOSPermissions();
   }
 
-  // Manejador cuando se toca una notificación y la app está en primer plano o segundo plano (no terminada)
-  static void onDidReceiveNotificationResponse(NotificationResponse notificationResponse) {
-    final String? payload = notificationResponse.payload;
-    if (payload != null) {
-      if (kDebugMode) {
-        print('Notification payload: $payload');
-      }
-      // Aquí puedes manejar la navegación o acciones basadas en el payload
-      // Ejemplo: MyApp.navigatorKey.currentState?.pushNamed('/details', arguments: payload);
+  static Future<bool> requestBasicPermission() async {
+    PermissionStatus status = await Permission.notification.status;
+    if (kDebugMode) print('Estado del permiso de notificación: $status');
+
+    if (status.isDenied) {
+      status = await Permission.notification.request();
     }
+    
+    return status.isGranted;
+  }
+
+  static Future<bool> requestExactAlarmPermission() async {
+    PermissionStatus status = await Permission.scheduleExactAlarm.status;
+    if (kDebugMode) print('Estado del permiso de alarma exacta: $status');
+
+    if (status.isDenied) {
+        status = await Permission.scheduleExactAlarm.request();
+    }
+    
+    return status.isGranted;
   }
   
-  // Manejador para cuando se toca una notificación y la app estaba terminada (solo Android por ahora con esta firma)
-  @pragma('vm:entry-point') // Necesario para que funcione en background en Flutter >=3.3.0
-  static void onDidReceiveBackgroundNotificationResponse(NotificationResponse notificationResponse) {
-    // Asegúrate de que este manejador sea lo más ligero posible.
-    // No intentes actualizar UI directamente aquí.
-    // Puedes guardar datos o usar otras formas de comunicación si es necesario.
-     final String? payload = notificationResponse.payload;
-    if (payload != null) {
-      if (kDebugMode) {
-        print('Background Notification payload: $payload');
-      }
-    }
+  static void onDidReceiveNotificationResponse(NotificationResponse notificationResponse) {
+    // ...
   }
-
-
-  // static Future<void> requestIOSPermissions() async {
-  //   await _notificationsPlugin
-  //       .resolvePlatformSpecificImplementation<
-  //           IOSFlutterLocalNotificationsPlugin>()
-  //       ?.requestPermissions(
-  //         alert: true,
-  //         badge: true,
-  //         sound: true,
-  //       );
-  // }
+  
+  @pragma('vm:entry-point')
+  static void onDidReceiveBackgroundNotificationResponse(NotificationResponse notificationResponse) {
+    // ...
+  }
 
   static Future<void> scheduleDailyNotification({
     required int id,
@@ -104,35 +92,22 @@ class NotificationUtil {
     try {
       final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
       tz.TZDateTime scheduledDate = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day,
-        time.hour,
-        time.minute,
+        tz.local, now.year, now.month, now.day, time.hour, time.minute,
       );
 
       if (scheduledDate.isBefore(now)) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
-      const NotificationDetails notificationDetails = NotificationDetails(
+      final NotificationDetails notificationDetails = NotificationDetails(
         android: AndroidNotificationDetails(
-          'daily_reminder_channel_id_1', // ID único del canal
-          'Recordatorios Diarios de Higiene',
-          channelDescription: 'Canal para recordatorios diarios de higiene bucal.',
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
           importance: Importance.max,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher', // Reemplaza con tu ícono
-          // sound: RawResourceAndroidNotificationSound('custom_sound'), // Si tienes un sonido personalizado
-          ticker: 'ticker',
         ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-          // sound: 'default', // o nombre del archivo de sonido personalizado
-        ),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
       );
 
       await _notificationsPlugin.zonedSchedule(
@@ -141,11 +116,10 @@ class NotificationUtil {
         body,
         scheduledDate,
         notificationDetails,
-        payload: payload ?? 'daily_reminder_payload', // Un payload por defecto
+        payload: payload ?? 'daily_reminder_payload',
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time, // Repetir diariamente a la misma hora
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
       );
       if (kDebugMode) {
         print('Notificación programada para: $scheduledDate con ID: $id');
@@ -154,13 +128,6 @@ class NotificationUtil {
       if (kDebugMode) {
         print('Error al programar notificación: $e');
       }
-    }
-  }
-
-  static Future<void> cancelNotification(int id) async {
-    await _notificationsPlugin.cancel(id);
-    if (kDebugMode) {
-      print('Notificación cancelada con ID: $id');
     }
   }
 

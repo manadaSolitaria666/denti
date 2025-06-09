@@ -187,7 +187,7 @@ class _UserDetailsScreenState extends ConsumerState<UserDetailsScreen> {
                           Expanded(
                             child: InkWell(
                               onTap: () {
-                                // TODO: Mostrar diálogo/pantalla con términos y condiciones
+                                // Mostrar diálogo/pantalla con términos y condiciones
                                 showDialog(
                                   context: context,
                                   builder: (context) => AlertDialog(

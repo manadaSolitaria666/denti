@@ -5,7 +5,6 @@ import 'package:dental_ai_app/core/navigation/app_router.dart';
 import 'package:dental_ai_app/core/providers/diagnosis_provider.dart';
 import 'package:dental_ai_app/features/diagnosis/widgets/captured_image_thumbnail.dart';
 import 'package:dental_ai_app/features/diagnosis/widgets/photo_guideline_widget.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
