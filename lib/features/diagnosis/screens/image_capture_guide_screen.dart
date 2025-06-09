@@ -5,7 +5,7 @@ import 'package:dental_ai_app/core/navigation/app_router.dart';
 import 'package:dental_ai_app/core/providers/diagnosis_provider.dart';
 import 'package:dental_ai_app/features/diagnosis/widgets/captured_image_thumbnail.dart'; 
 import 'package:dental_ai_app/features/diagnosis/widgets/photo_guideline_widget.dart';
-import 'package:flutter/foundation.dart'; // Para kDebugMode
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +44,8 @@ class ImageCaptureGuideScreen extends ConsumerStatefulWidget {
 
 class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScreen>  with WidgetsBindingObserver {
   CameraController? _cameraController;
+  List<CameraDescription> _cameras = []; // Lista para almacenar todas las cámaras
+  int _selectedCameraIndex = -1; // Índice de la cámara seleccionada
   int _currentStep = 0; 
   final List<File> _capturedImages = []; 
   bool _isCameraInitialized = false;
@@ -68,15 +70,14 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = _cameraController;
-
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
     }
-
     if (state == AppLifecycleState.inactive) {
       cameraController.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      _initializeCameraController(cameraController.description);
+    } else if (state == AppLifecycleState.resumed && _selectedCameraIndex != -1) {
+      // Reinicializar con la cámara que ya estaba seleccionada
+      _initializeCameraController(_cameras[_selectedCameraIndex]);
     }
   }
 
@@ -86,21 +87,20 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
 
     if (status.isGranted) {
       try {
-        final cameras = await ref.read(availableCamerasProvider.future);
+        _cameras = await ref.read(availableCamerasProvider.future);
         if (!mounted) return;
-        if (cameras.isNotEmpty) {
-          CameraDescription? backCamera;
-          try {
-            backCamera = cameras.firstWhere(
-              (camera) => camera.lensDirection == CameraLensDirection.back,
-            );
-          } catch (e) {
-            backCamera = cameras.first;
-             if (kDebugMode) {
-              print("No se encontró cámara trasera, usando la primera: ${backCamera.name}");
-            }
+        if (_cameras.isNotEmpty) {
+          // CORRECCIÓN: Priorizar la cámara frontal
+          _selectedCameraIndex = _cameras.indexWhere(
+            (camera) => camera.lensDirection == CameraLensDirection.front
+          );
+
+          // Si no se encuentra cámara frontal, usar la primera (usualmente trasera)
+          if (_selectedCameraIndex == -1) {
+            _selectedCameraIndex = 0;
           }
-          _initializeCameraController(backCamera);
+
+          _initializeCameraController(_cameras[_selectedCameraIndex]);
         } else {
            setState(() => _cameraError = "No se encontraron cámaras disponibles.");
         }
@@ -116,10 +116,12 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
   }
 
   Future<void> _initializeCameraController(CameraDescription cameraDescription) async {
+    // Si el controlador ya está inicializado con la misma cámara, no hacer nada.
     if (_cameraController?.description.name == cameraDescription.name && _cameraController?.value.isInitialized == true) {
       return;
     }
     
+    // Si hay un controlador existente, liberarlo primero.
     if (_cameraController != null) {
       await _cameraController!.dispose();
     }
@@ -155,6 +157,19 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
     }
   }
 
+  // NUEVO: Método para cambiar de cámara
+  void _switchCamera() {
+    if (_cameras.length < 2) return; // No hacer nada si solo hay una cámara
+    
+    // Cambiar al siguiente índice de cámara, volviendo al inicio si es necesario
+    _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras.length;
+    final newCamera = _cameras[_selectedCameraIndex];
+    
+    // Reinicializar el controlador con la nueva cámara
+    _initializeCameraController(newCamera);
+  }
+
+
   void _showPermissionDeniedDialog() {
     if(!mounted) return;
     showDialog(
@@ -170,7 +185,7 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
           TextButton(
             child: const Text('Abrir Ajustes'),
             onPressed: () {
-              openAppSettings(); 
+              openAppSettings();
               Navigator.of(context).pop();
             },
           ),
@@ -191,14 +206,13 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
             child: const Text('OK'),
             onPressed: () {
               Navigator.of(context).pop();
-              if(context.canPop()) context.pop(); 
+              if(context.canPop()) context.pop();
             },
           ),
         ],
       ),
     );
   }
-
 
   Future<void> _takePicture() async {
     if (!_isCameraInitialized || _cameraController == null || !_cameraController!.value.isInitialized || _cameraController!.value.isTakingPicture) {
@@ -240,9 +254,9 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
   }
   
   void _retakePicture(int index) {
-    if (_isCapturing) return; 
+    if (_isCapturing) return;
     setState(() {
-      _currentStep = index; 
+      _currentStep = index;
     });
   }
 
@@ -274,7 +288,6 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
     }
   }
 
-
   Future<void> _proceedToAnalysis() async {
     if (_capturedImages.length < photoGuidelines.length) {
       if (mounted) {
@@ -286,7 +299,6 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
     }
 
     final diagnosisNotifier = ref.read(diagnosisNotifierProvider.notifier);
-    // CORRECCIÓN 1: Cambiar clearAllImages a clearTemporaryImageData
     diagnosisNotifier.clearTemporaryImageData(); 
     for (final imgFile in _capturedImages) {
       diagnosisNotifier.addImageFile(imgFile);
@@ -309,8 +321,7 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
       },
     );
 
-    // CORRECCIÓN 2: Cambiar generateDiagnosis a generateDiagnosisAndSaveReport
-    final reportId = await diagnosisNotifier.generateDiagnosisAndSaveReport(); 
+    final reportId = await diagnosisNotifier.generateDiagnosisAndSaveReport();
     
     if (mounted) Navigator.of(context, rootNavigator: true).pop(); 
 
@@ -324,7 +335,6 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -350,9 +360,8 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
                     TextButton(
                       onPressed: () {
                         Navigator.of(ctx).pop();
-                        // Usar el nombre correcto del método
                         ref.read(diagnosisNotifierProvider.notifier).clearTemporaryImageData();
-                        context.pop(); 
+                        context.pop();
                       },
                       child: const Text('Salir', style: TextStyle(color: Colors.red)),
                     ),
@@ -360,10 +369,19 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
                 ),
               );
             } else {
-              context.pop(); 
+              context.pop();
             }
           },
-        ),
+         ),
+        // NUEVO: Añadir botón para cambiar de cámara
+        actions: [
+          if (_cameras.length > 1) // Solo mostrar si hay más de una cámara
+            IconButton(
+              icon: const Icon(Icons.flip_camera_ios_outlined),
+              onPressed: _isCapturing ? null : _switchCamera, // Deshabilitar mientras se captura
+              tooltip: 'Cambiar cámara',
+            ),
+        ],
       ),
       body: Column(
         children: <Widget>[
@@ -467,7 +485,6 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
     } else if (scale < 1) {
         scale = 1 / scale;
     }
-
 
     return ClipRect( 
       child: Transform.scale(
