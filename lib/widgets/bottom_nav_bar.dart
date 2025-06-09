@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class BottomNavBarScaffold extends StatefulWidget {
-  final Widget child; // El contenido de la pestaña actual
+  final Widget child;
 
   const BottomNavBarScaffold({super.key, required this.child});
 
@@ -13,25 +13,15 @@ class BottomNavBarScaffold extends StatefulWidget {
 }
 
 class _BottomNavBarScaffoldState extends State<BottomNavBarScaffold> {
-  // Determina el índice actual basado en la ruta de GoRouter
+  
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith(AppRoutes.homePath)) {
-      return 0;
-    }
-    if (location.startsWith(AppRoutes.diagnosisHistoryPath)) {
-      return 1;
-    }
-    if (location.startsWith(AppRoutes.blogListPath)) {
-      return 2;
-    }
-    if (location.startsWith(AppRoutes.nearbyClinicsMapPath)) {
-      return 3;
-    }
-    if (location.startsWith(AppRoutes.remindersSettingsPath)) {
-      return 4;
-    }
-    return 0; // Por defecto a Home
+    // La nueva estructura de navegación con 4 pestañas
+    if (location.startsWith(AppRoutes.homePath)) return 0;
+    if (location.startsWith(AppRoutes.blogListPath)) return 1;
+    if (location.startsWith(AppRoutes.nearbyClinicsMapPath)) return 2;
+    if (location.startsWith(AppRoutes.userProfilePath)) return 3; // Nueva pestaña de Usuario
+    return 0; // Por defecto a Inicio
   }
 
   void _onItemTapped(int index, BuildContext context) {
@@ -40,16 +30,13 @@ class _BottomNavBarScaffoldState extends State<BottomNavBarScaffold> {
         context.goNamed(AppRoutes.home);
         break;
       case 1:
-        context.goNamed(AppRoutes.diagnosisHistory);
-        break;
-      case 2:
         context.goNamed(AppRoutes.blogList);
         break;
-      case 3:
+      case 2:
         context.goNamed(AppRoutes.nearbyClinicsMap);
         break;
-      case 4:
-        context.goNamed(AppRoutes.remindersSettings);
+      case 3:
+        context.goNamed(AppRoutes.userProfile); // Navegar a la nueva ruta de Usuario
         break;
     }
   }
@@ -57,21 +44,17 @@ class _BottomNavBarScaffoldState extends State<BottomNavBarScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: widget.child, // Muestra la pantalla actual de la ruta anidada
+      body: widget.child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _calculateSelectedIndex(context),
         onTap: (index) => _onItemTapped(index, context),
-        type: BottomNavigationBarType.fixed, // Para más de 3 items, o shifting
+        type: BottomNavigationBarType.fixed, // Asegura que todos los items sean visibles
         items: const <BottomNavigationBarItem>[
+          // Nuevos 4 items de la barra de navegación
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
-            label: 'Historial',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.article_outlined),
@@ -84,14 +67,11 @@ class _BottomNavBarScaffoldState extends State<BottomNavBarScaffold> {
             label: 'Mapa',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Ajustes',
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Usuario',
           ),
         ],
-        // Puedes personalizar colores aquí:
-        // selectedItemColor: Theme.of(context).colorScheme.primary,
-        // unselectedItemColor: Colors.grey,
       ),
     );
   }

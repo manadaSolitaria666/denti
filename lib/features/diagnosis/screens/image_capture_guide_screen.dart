@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:dental_ai_app/core/navigation/app_router.dart';
 import 'package:dental_ai_app/core/providers/diagnosis_provider.dart';
-import 'package:dental_ai_app/features/diagnosis/widgets/captured_image_thumbnail.dart'; 
+import 'package:dental_ai_app/features/diagnosis/widgets/captured_image_thumbnail.dart';
 import 'package:dental_ai_app/features/diagnosis/widgets/photo_guideline_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -44,8 +44,8 @@ class ImageCaptureGuideScreen extends ConsumerStatefulWidget {
 
 class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScreen>  with WidgetsBindingObserver {
   CameraController? _cameraController;
-  List<CameraDescription> _cameras = []; // Lista para almacenar todas las cámaras
-  int _selectedCameraIndex = -1; // Índice de la cámara seleccionada
+  List<CameraDescription> _cameras = [];
+  int _selectedCameraIndex = -1;
   int _currentStep = 0; 
   final List<File> _capturedImages = []; 
   bool _isCameraInitialized = false;
@@ -76,30 +76,25 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
     if (state == AppLifecycleState.inactive) {
       cameraController.dispose();
     } else if (state == AppLifecycleState.resumed && _selectedCameraIndex != -1) {
-      // Reinicializar con la cámara que ya estaba seleccionada
       _initializeCameraController(_cameras[_selectedCameraIndex]);
     }
   }
 
   Future<void> _requestCameraPermissionAndInitialize() async {
     final status = await Permission.camera.request();
-    if (!mounted) return; 
+    if (!mounted) return;
 
     if (status.isGranted) {
       try {
         _cameras = await ref.read(availableCamerasProvider.future);
         if (!mounted) return;
         if (_cameras.isNotEmpty) {
-          // CORRECCIÓN: Priorizar la cámara frontal
           _selectedCameraIndex = _cameras.indexWhere(
             (camera) => camera.lensDirection == CameraLensDirection.front
           );
-
-          // Si no se encuentra cámara frontal, usar la primera (usualmente trasera)
           if (_selectedCameraIndex == -1) {
             _selectedCameraIndex = 0;
           }
-
           _initializeCameraController(_cameras[_selectedCameraIndex]);
         } else {
            setState(() => _cameraError = "No se encontraron cámaras disponibles.");
@@ -116,12 +111,10 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
   }
 
   Future<void> _initializeCameraController(CameraDescription cameraDescription) async {
-    // Si el controlador ya está inicializado con la misma cámara, no hacer nada.
     if (_cameraController?.description.name == cameraDescription.name && _cameraController?.value.isInitialized == true) {
       return;
     }
     
-    // Si hay un controlador existente, liberarlo primero.
     if (_cameraController != null) {
       await _cameraController!.dispose();
     }
@@ -146,29 +139,23 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
-          _cameraError = null; 
+          _cameraError = null;
         });
       }
     } on CameraException catch (e) {
       if (mounted) setState(() => _cameraError = 'Error al inicializar cámara: ${e.description}');
       _showCameraErrorDialog(e.description);
-    } catch (e) { 
+    } catch (e) {
       if (mounted) setState(() => _cameraError = 'Error inesperado con la cámara: ${e.toString()}');
     }
   }
 
-  // NUEVO: Método para cambiar de cámara
   void _switchCamera() {
-    if (_cameras.length < 2) return; // No hacer nada si solo hay una cámara
-    
-    // Cambiar al siguiente índice de cámara, volviendo al inicio si es necesario
+    if (_cameras.length < 2 || _isCapturing) return;
     _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras.length;
     final newCamera = _cameras[_selectedCameraIndex];
-    
-    // Reinicializar el controlador con la nueva cámara
     _initializeCameraController(newCamera);
   }
-
 
   void _showPermissionDeniedDialog() {
     if(!mounted) return;
@@ -213,6 +200,7 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
       ),
     );
   }
+
 
   Future<void> _takePicture() async {
     if (!_isCameraInitialized || _cameraController == null || !_cameraController!.value.isInitialized || _cameraController!.value.isTakingPicture) {
@@ -338,15 +326,13 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
 
   @override
   Widget build(BuildContext context) {
-    final currentGuideline = photoGuidelines[_currentStep];
     final bool allPhotosTakenAndExist = _capturedImages.length == photoGuidelines.length && 
                                      _capturedImages.every((file) => file.existsSync());
-
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Captura de Fotos (${_currentStep + 1}/${photoGuidelines.length})'),
-         leading: IconButton(
+        leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             if (_capturedImages.isNotEmpty) {
@@ -372,91 +358,109 @@ class _ImageCaptureGuideScreenState extends ConsumerState<ImageCaptureGuideScree
               context.pop();
             }
           },
-         ),
-        // NUEVO: Añadir botón para cambiar de cámara
+        ),
         actions: [
-          if (_cameras.length > 1) // Solo mostrar si hay más de una cámara
+          if (_cameras.length > 1)
             IconButton(
               icon: const Icon(Icons.flip_camera_ios_outlined),
-              onPressed: _isCapturing ? null : _switchCamera, // Deshabilitar mientras se captura
+              onPressed: _isCapturing ? null : _switchCamera,
               tooltip: 'Cambiar cámara',
             ),
         ],
       ),
-      body: Column(
-        children: <Widget>[
-          Expanded(
-            flex: 3, 
-            child: Container(
-              color: Colors.black, 
-              child: _buildCameraPreview(),
-            ),
-          ),
-          Expanded(
-            flex: 2, 
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-                children: [
-                  PhotoGuidelineWidget(guideline: currentGuideline),
-                  if (_currentStep < _capturedImages.length && _capturedImages[_currentStep].existsSync())
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                        const SizedBox(width: 8),
-                        Text("Foto '${currentGuideline.title}' capturada.", style: const TextStyle(color: Colors.green)),
-                      ],
-                    ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios),
-                        onPressed: _currentStep > 0 ? _previousPhotoStep : null,
-                        iconSize: 30,
-                        tooltip: "Foto Anterior",
-                      ),
-                      ElevatedButton.icon(
-                        icon: _isCapturing 
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Icon(_currentStep < _capturedImages.length ? Icons.refresh_outlined : Icons.camera_alt),
-                        label: Text(_currentStep < _capturedImages.length ? 'Retomar Foto' : 'Capturar Foto'),
-                        onPressed: (_isCameraInitialized && !_isCapturing && _cameraController != null && _cameraController!.value.isInitialized) ? _takePicture : null,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), 
-                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          backgroundColor: _currentStep < _capturedImages.length ? Colors.orangeAccent : Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                       IconButton(
-                        icon: const Icon(Icons.arrow_forward_ios),
-                        onPressed: (_currentStep < photoGuidelines.length - 1 && _currentStep < _capturedImages.length && _capturedImages[_currentStep].existsSync()) ? _nextPhotoStep : null,
-                        iconSize: 30,
-                        tooltip: "Siguiente Foto",
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_capturedImages.isNotEmpty) _buildThumbnailsSection(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16.0,8.0,16.0,16.0), 
+      persistentFooterButtons: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: SizedBox(
+            width: double.infinity,
             child: ElevatedButton(
               onPressed: allPhotosTakenAndExist ? _proceedToAnalysis : null, 
               style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                 shape: RoundedRectangleBorder(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.0),
                 ),
               ),
               child: const Text('Analizar Todas las Fotos'),
             ),
           ),
+        )
+      ],
+      // CORRECCIÓN PRINCIPAL: El body es ahora una Columna con un Expanded para la cámara
+      // y un Container de tamaño fijo para los controles, evitando el overflow.
+      body: Column(
+        children: <Widget>[
+          // El preview de la cámara ahora tomará todo el espacio flexible disponible
+          Expanded(
+            child: Container(
+              color: Colors.black, 
+              child: _buildCameraPreview(),
+            ),
+          ),
+          
+          // La sección de miniaturas
+          if (_capturedImages.isNotEmpty) _buildThumbnailsSection(),
+
+          // La sección de controles y guías, ahora con tamaño flexible y compacto
+          Container(
+            padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // La columna toma solo el espacio que necesita
+              children: [
+                PhotoGuidelineWidget(guideline: photoGuidelines[_currentStep]),
+                const SizedBox(height: 8),
+                // Contenedor con altura fija para el mensaje de confirmación para estabilizar el layout
+                SizedBox(
+                  height: 24,
+                  child: (_currentStep < _capturedImages.length && _capturedImages[_currentStep].existsSync())
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            const SizedBox(width: 8),
+                            const Text("Foto capturada", style: TextStyle(color: Colors.green, fontSize: 12)),
+                          ],
+                        )
+                      : null, // No mostrar nada si no hay foto
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios),
+                      onPressed: _currentStep > 0 ? _previousPhotoStep : null,
+                      iconSize: 28, // Tamaño reducido
+                      tooltip: "Foto Anterior",
+                    ),
+                    ElevatedButton.icon(
+                      icon: _isCapturing 
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Icon(_currentStep < _capturedImages.length ? Icons.refresh_outlined : Icons.camera_alt, size: 20),
+                      label: Text(
+                          _currentStep < _capturedImages.length ? 'Retomar' : 'Capturar',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: (_isCameraInitialized && !_isCapturing && _cameraController != null && _cameraController!.value.isInitialized) ? _takePicture : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Padding reducido
+                        backgroundColor: _currentStep < _capturedImages.length ? Colors.orangeAccent : Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                      ),
+                    ),
+                     IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios),
+                      onPressed: (_currentStep < photoGuidelines.length - 1 && _currentStep < _capturedImages.length && _capturedImages[_currentStep].existsSync()) ? _nextPhotoStep : null,
+                      iconSize: 28, // Tamaño reducido
+                      tooltip: "Siguiente Foto",
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )
         ],
       ),
     );
