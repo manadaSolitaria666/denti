@@ -1,4 +1,4 @@
-// lib/core/utils/notification_util.dart (Sin cambios en esta versión)
+// lib/core/utils/notification_util.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -74,13 +74,42 @@ class NotificationUtil {
   }
   
   static void onDidReceiveNotificationResponse(NotificationResponse notificationResponse) {
-    // ...
+    final String? payload = notificationResponse.payload;
+    if (payload != null && kDebugMode) {
+        print('Notification payload: $payload');
+    }
   }
   
   @pragma('vm:entry-point')
   static void onDidReceiveBackgroundNotificationResponse(NotificationResponse notificationResponse) {
-    // ...
+    final String? payload = notificationResponse.payload;
+    if (payload != null && kDebugMode) {
+      print('Background Notification payload: $payload');
+    }
   }
+
+  static Future<void> showTestNotification() async {
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
+    );
+
+    await _notificationsPlugin.show(
+      99, // Un ID único para la notificación de prueba
+      'Prueba de Notificación', 
+      'Si puedes ver esto, ¡las notificaciones funcionan!', 
+      notificationDetails,
+      payload: 'test_payload'
+    );
+    if (kDebugMode) print('Mostrando notificación de prueba.');
+  }
+
 
   static Future<void> scheduleDailyNotification({
     required int id,
@@ -90,9 +119,16 @@ class NotificationUtil {
     String? payload,
   }) async {
     try {
-      final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+      final location = tz.getLocation('America/Mexico_City');
+      final tz.TZDateTime now = tz.TZDateTime.now(location);
+      
       tz.TZDateTime scheduledDate = tz.TZDateTime(
-        tz.local, now.year, now.month, now.day, time.hour, time.minute,
+        location,
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
       );
 
       if (scheduledDate.isBefore(now)) {
@@ -116,17 +152,17 @@ class NotificationUtil {
         body,
         scheduledDate,
         notificationDetails,
-        payload: payload ?? 'daily_reminder_payload',
+        payload: payload ?? 'daily_reminder_payload_$id',
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
       );
       if (kDebugMode) {
-        print('Notificación programada para: $scheduledDate con ID: $id');
+        print('Notificación programada para (CDMX Time): $scheduledDate con ID: $id');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error al programar notificación: $e');
+        print('Error al programar notificación con ID $id: $e');
       }
     }
   }

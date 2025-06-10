@@ -1,5 +1,6 @@
-// lib/features/settings_reminders/screens/reminders_settings_screen.dart (Con instrucciones para Xiaomi)
+// lib/features/settings_reminders/screens/reminders_settings_screen.dart
 import 'package:dental_ai_app/core/providers/notification_provider.dart';
+import 'package:dental_ai_app/core/utils/notification_util.dart';
 import 'package:dental_ai_app/features/settings_reminders/widgets/reminder_option_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,18 +9,15 @@ import 'package:permission_handler/permission_handler.dart';
 class RemindersSettingsScreen extends ConsumerWidget {
   const RemindersSettingsScreen({super.key});
 
-  Future<void> _selectTime(BuildContext context, WidgetRef ref, TimeOfDay? initialTime) async {
+  Future<void> _selectTime(BuildContext context, WidgetRef ref, int reminderType, TimeOfDay? initialTime) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: initialTime ?? const TimeOfDay(hour: 20, minute: 0),
+      initialTime: initialTime ?? TimeOfDay(hour: (8 + reminderType * 7), minute: 0),
       helpText: 'SELECCIONA HORA PARA RECORDATORIO',
     );
-    if (picked != null) {
-      await ref.read(notificationNotifierProvider.notifier).setReminderTime(picked);
-    }
+    await ref.read(notificationNotifierProvider.notifier).setReminderTime(reminderType, picked);
   }
   
-  // Widget helper modificado para no requerir un botón
   Widget _buildPermissionWarningCard(BuildContext context, String text, {VoidCallback? onFix, String buttonText = 'ARREGLAR'}) {
     return Card(
       color: Colors.amber.shade100,
@@ -33,7 +31,7 @@ class RemindersSettingsScreen extends ConsumerWidget {
             Expanded(
               child: Text(text, style: TextStyle(color: Colors.amber.shade900)),
             ),
-            if (onFix != null) ...[ // Solo mostrar el botón si se provee una acción
+            if (onFix != null) ...[
               const SizedBox(width: 12),
               TextButton(onPressed: onFix, child: Text(buttonText)),
             ]
@@ -55,7 +53,6 @@ class RemindersSettingsScreen extends ConsumerWidget {
       body: ListView( 
         padding: const EdgeInsets.all(16.0),
         children: <Widget>[
-          // Verificador para el permiso BÁSICO de notificaciones
           basicPermissionStatusAsync.when(
             data: (status) {
               if (status.isGranted) return const SizedBox.shrink();
@@ -71,7 +68,6 @@ class RemindersSettingsScreen extends ConsumerWidget {
             error: (e, s) => Text('Error al verificar permisos: $e'),
           ),
 
-          // Verificador para el permiso de ALARMAS EXACTAS
           exactAlarmPermissionAsync.when(
             data: (status) {
               if (status.isGranted) return const SizedBox.shrink();
@@ -88,24 +84,18 @@ class RemindersSettingsScreen extends ConsumerWidget {
             error: (e, s) => Text('Error al verificar permiso de alarma: $e'),
           ),
           
-          // <<<--- INICIO DE CORRECCIÓN PARA XIAOMI ---
-          // Aviso sobre optimización de batería con instrucciones claras
           batteryOptimizationStatusAsync.when(
             data: (status) {
-              // Solo mostrar si el permiso NO está concedido (es decir, la optimización está activa)
               if (status.isGranted) return const SizedBox.shrink();
 
-              // El botón se elimina porque request() no funciona en MIUI.
-              // En su lugar, se muestran instrucciones detalladas.
               return _buildPermissionWarningCard(
                 context,
-                'Tu teléfono Xiaomi puede cerrar la app para ahorrar batería.\n\nPara asegurar que los recordatorios funcionen:\n1. Ve a Ajustes > Batería\n2. Toca el icono de engranaje (⚙️)\n3. "Ahorro de batería en aplic."\n4. Busca "Dental AI" y elige "Sin restricciones"',
+                'Tu teléfono Xiaomi puede cerrar la app para ahorrar batería.\n\nPara asegurar que los recordatorios funcionen, por favor, sigue estos pasos:\n1. Ve a Ajustes > Batería > ⚙️\n2. "Ahorro de batería en aplic."\n3. Busca "Dental AI" y elige "Sin restricciones".\n4. Vuelve atrás y busca "Inicio automático" o "Autostart", y actívalo para "Dental AI".',
               );
             },
             loading: () => const SizedBox.shrink(),
             error: (e,s) => const SizedBox.shrink(),
           ),
-          // --- FIN DE CORRECCIÓN ---
           
           Card(
             elevation: 2,
@@ -136,7 +126,7 @@ class RemindersSettingsScreen extends ConsumerWidget {
                         await notificationNotifier.toggleReminders(value);
                         ref.invalidate(notificationPermissionProvider);
                         ref.invalidate(exactAlarmPermissionProvider);
-                        ref.invalidate(batteryOptimizationProvider); // Re-verificar
+                        ref.invalidate(batteryOptimizationProvider);
                       },
                       activeColor: Theme.of(context).colorScheme.primary,
                     ),
@@ -144,27 +134,50 @@ class RemindersSettingsScreen extends ConsumerWidget {
                       await notificationNotifier.toggleReminders(!notificationSettings.remindersEnabled);
                       ref.invalidate(notificationPermissionProvider);
                       ref.invalidate(exactAlarmPermissionProvider);
-                      ref.invalidate(batteryOptimizationProvider); // Re-verificar
+                      ref.invalidate(batteryOptimizationProvider);
                     },
                   ),
                   const Divider(),
                   ReminderOptionWidget(
-                    leadingIcon: Icons.access_time_outlined,
-                    title: 'Hora del Recordatorio',
+                    leadingIcon: Icons.wb_sunny_outlined,
+                    title: 'Recordatorio de Mañana',
                     isEnabled: notificationSettings.remindersEnabled,
-                    trailing: Text(
-                      notificationSettings.reminderTime?.format(context) ?? 'No establecida',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: notificationSettings.remindersEnabled
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey,
-                      ),
-                    ),
-                    onTap: () => _selectTime(context, ref, notificationSettings.reminderTime),
+                    trailing: Text(notificationSettings.morningReminder?.format(context) ?? 'No establecido', style: TextStyle(fontWeight: FontWeight.bold, color: notificationSettings.remindersEnabled ? Theme.of(context).colorScheme.primary : Colors.grey)),
+                    onTap: () => _selectTime(context, ref, 0, notificationSettings.morningReminder),
+                  ),
+                   ReminderOptionWidget(
+                    leadingIcon: Icons.fastfood_outlined,
+                    title: 'Recordatorio de Tarde',
+                    isEnabled: notificationSettings.remindersEnabled,
+                    trailing: Text(notificationSettings.afternoonReminder?.format(context) ?? 'No establecido', style: TextStyle(fontWeight: FontWeight.bold, color: notificationSettings.remindersEnabled ? Theme.of(context).colorScheme.primary : Colors.grey)),
+                    onTap: () => _selectTime(context, ref, 1, notificationSettings.afternoonReminder),
+                  ),
+                   ReminderOptionWidget(
+                    leadingIcon: Icons.nightlight_round,
+                    title: 'Recordatorio de Noche',
+                    isEnabled: notificationSettings.remindersEnabled,
+                    trailing: Text(notificationSettings.nightReminder?.format(context) ?? 'No establecido', style: TextStyle(fontWeight: FontWeight.bold, color: notificationSettings.remindersEnabled ? Theme.of(context).colorScheme.primary : Colors.grey)),
+                    onTap: () => _selectTime(context, ref, 2, notificationSettings.nightReminder),
                   ),
                 ],
               ),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.send_and_archive_outlined),
+            label: const Text('Probar Notificación Ahora'),
+            onPressed: () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Enviando notificación de prueba en 5 segundos...'), duration: Duration(seconds: 4)),
+              );
+              await Future.delayed(const Duration(seconds: 5));
+              await notificationNotifier.sendTestNotification();
+            },
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
+              padding: const EdgeInsets.symmetric(vertical: 12)
             ),
           ),
         ],
