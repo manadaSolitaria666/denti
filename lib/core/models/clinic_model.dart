@@ -53,7 +53,7 @@ class ClinicModel extends Equatable {
       position = const LatLng(0, 0);
     }
     
-    // Extraer la lista de servicios
+    // Extraer la lista de servicios jova!!
     final services = data['servicesOffered'] as List<dynamic>? ?? [];
     final List<String> servicesList = services.map((service) => service.toString()).toList();
 
