@@ -1,28 +1,26 @@
 // lib/features/diagnosis/screens/diagnosis_result_screen.dart
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
 import 'package:dental_ai_app/core/navigation/app_router.dart';
-import 'package:dental_ai_app/core/providers/diagnosis_provider.dart'; 
+import 'package:dental_ai_app/core/providers/diagnosis_provider.dart';
 import 'package:dental_ai_app/core/services/auth_service.dart';
 import 'package:dental_ai_app/core/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart'; 
-import 'package:carousel_slider/carousel_slider.dart'; 
+import 'package:intl/intl.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 final specificReportProvider = FutureProvider.autoDispose.family<DiagnosisReportModel?, String>((ref, reportId) async {
   final userId = ref.watch(authStateChangesProvider).value?.uid;
-  if (userId == null) {
-    return null;
-  }
+  if (userId == null) return null;
+
   final firestoreService = ref.watch(firestoreServiceProvider);
   try {
     final docSnapshot = await firestoreService.reportsCollection(userId).doc(reportId).get();
     if (docSnapshot.exists) {
       return docSnapshot.data();
-    } else {
-      return null;
     }
+    return null;
   } catch (e) {
     return null;
   }
@@ -61,21 +59,10 @@ class DiagnosisResultScreen extends ConsumerWidget {
       body: reportAsyncValue.when(
         data: (report) {
           if (report == null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.sentiment_dissatisfied_outlined, size: 60, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    const Text('No se pudo cargar el reporte.', style: TextStyle(fontSize: 18)),
-                    const SizedBox(height: 8),
-                    Text("ID del Reporte: $reportId", style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              )
-            );
+            return const Center(child: Text('No se pudo cargar el reporte.'));
+          }
+          if (report.error != null) {
+            return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('Error en el análisis: ${report.error}')));
           }
           return _buildReportDetails(context, report, ref);
         },
@@ -90,55 +77,147 @@ class DiagnosisResultScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildSeverityChip(BuildContext context, String severity) {
+    Color chipColor;
+    IconData iconData;
+
+    switch (severity.toLowerCase()) {
+      case 'urgente':
+        chipColor = Colors.red.shade700;
+        iconData = Icons.error_outline;
+        break;
+      case 'alto':
+        chipColor = Colors.orange.shade700;
+        iconData = Icons.warning_amber_rounded;
+        break;
+      case 'moderado':
+        chipColor = Colors.amber.shade700;
+        iconData = Icons.info_outline;
+        break;
+      case 'bajo':
+        chipColor = Colors.green.shade700;
+        iconData = Icons.check_circle_outline;
+        break;
+      default:
+        chipColor = Colors.grey.shade700;
+        iconData = Icons.help_outline;
+    }
+
+    return Chip(
+      avatar: Icon(iconData, color: Colors.white, size: 20),
+      label: Text(severity.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      backgroundColor: chipColor,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildReportDetails(BuildContext context, DiagnosisReportModel report, WidgetRef ref) {
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy, HH:mm');
-    // CORRECCIÓN: Usar SafeArea para evitar la superposición con los botones del sistema.
-    // Opcionalmente, se puede añadir padding al ListView.
+    
     return SafeArea(
-      left: false, right: false, top: false, // Solo aplicar el padding de abajo
+      left: false, right: false, top: false,
       child: ListView(
-        // Añadimos padding extra por si SafeArea no es suficiente o para estética.
         padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
         children: <Widget>[
           Card(
-            elevation: 2,
+            elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Reporte de Análisis Dental IA',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Resumen del Análisis',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      _buildSeverityChip(context, report.severityLevel),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('Fecha: ${dateFormat.format(report.createdAt.toDate())}'),
                   const Divider(height: 24, thickness: 1),
-                  _buildSectionTitle(context, 'Información Proporcionada:', Icons.list_alt_outlined),
-                  ...report.formData.entries.map((entry) {
-                    if (entry.key.startsWith('image_angle_description_')) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text('${_formatFormKey(entry.key)}: ${entry.value.toString()}'),
-                    );
-                  }).toList(),
+                  Text(report.overallSummary, style: Theme.of(context).textTheme.bodyLarge),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          
+          if (report.possibleConditions.isNotEmpty) ...[
+            _buildSectionTitle(context, 'Posibles Condiciones', Icons.healing_outlined),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: report.possibleConditions.map((condition) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4.0),
+                          child: Icon(Icons.arrow_right, color: Colors.grey),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(condition, style: Theme.of(context).textTheme.bodyMedium)),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ],
+          
+           _buildSectionTitle(context, 'Recomendaciones Detalladas', Icons.recommend_outlined),
+           const SizedBox(height: 8),
+           Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(report.detailedRecommendations, style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5)),
+              ),
+            ),
+          
+          _buildSectionTitle(context, 'Próximos Pasos', Icons.directions_walk_outlined),
+          const SizedBox(height: 8),
+          Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(report.nextSteps, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onPrimaryContainer), textAlign: TextAlign.center),
+              ),
+            ),
+          const SizedBox(height: 24),
 
           if (report.images.isNotEmpty) ...[
-            _buildSectionTitle(context, 'Imágenes Capturadas:', Icons.photo_library_outlined),
+            _buildSectionTitle(context, 'Imágenes de Referencia', Icons.photo_library_outlined),
             const SizedBox(height: 8),
             CarouselSlider(
               options: CarouselOptions(
                 height: 200.0,
-                enlargeCenterPage: true,
                 enableInfiniteScroll: report.images.length > 1,
                 viewportFraction: 0.7,
-                aspectRatio: 16/9,
               ),
               items: report.images.map((imageModel) {
                 return Builder(
@@ -171,81 +250,21 @@ class DiagnosisResultScreen extends ConsumerWidget {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
           ],
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle(context, 'Análisis IA (Gemini):', Icons.auto_awesome_outlined),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Signos Identificados:',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(report.identifiedSigns.isNotEmpty ? report.identifiedSigns : "No se identificaron signos específicos."),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Recomendaciones:',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(report.recommendations.isNotEmpty ? report.recommendations : "No se generaron recomendaciones específicas."),
-                   if (report.error != null && report.error!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Error en el Análisis:',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.red),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(report.error!, style: const TextStyle(color: Colors.red)),
-                  ]
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Importante: Este análisis es una herramienta preliminar y no reemplaza la consulta con un profesional dental calificado. Te recomendamos visitar a tu dentista para una evaluación completa y un diagnóstico definitivo.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
-              textAlign: TextAlign.center,
-            ),
-          ),
+
           const SizedBox(height: 24),
           ElevatedButton.icon(
             icon: const Icon(Icons.map_outlined),
             label: const Text('Buscar Consultorios Cercanos'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-            ),
-            onPressed: () {
-              context.goNamed(AppRoutes.nearbyClinicsMap);
-            },
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16.0)),
+            onPressed: () => context.goNamed(AppRoutes.nearbyClinicsMap),
           ),
           if (!isFromHistory) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(
               icon: const Icon(Icons.home_outlined),
               label: const Text('Volver al Inicio'),
-               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14.0),
-                textStyle: Theme.of(context).textTheme.titleMedium,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-              ),
+               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14.0)),
               onPressed: () {
                 context.goNamed(AppRoutes.home);
                 ref.read(diagnosisNotifierProvider.notifier).resetDiagnosisFlow();
@@ -255,29 +274,5 @@ class DiagnosisResultScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildSectionTitle(BuildContext context, String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
-    );
-  }
-
-  String _formatFormKey(String key) {
-    if (key == 'mainConcern') return 'Motivo Principal';
-    if (key == 'detailedSymptoms') return 'Síntomas Detallados';
-    if (key == 'symptomsDuration') return 'Duración de Síntomas';
-    if (key == 'hasPain') return 'Presenta Dolor';
-    if (key == 'hasSwelling') return 'Presenta Inflamación';
-    if (key == 'hasBleeding') return 'Presenta Sangrado';
-    return key.replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
-              .replaceFirstMapped(RegExp(r'^[a-z]'), (match) => match.group(0)!.toUpperCase());
   }
 }

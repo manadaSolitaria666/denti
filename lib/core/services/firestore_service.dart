@@ -1,5 +1,6 @@
-// lib/core/services/firestore_service.dart
+// lib/core/services/firestore_service.dart (Actualizado)
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dental_ai_app/core/models/clinic_model.dart'; // <<<--- AÑADIR ESTA IMPORTACIÓN
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
 import 'package:dental_ai_app/core/models/user_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,25 +10,30 @@ class FirestoreService {
 
   FirestoreService(this._db);
 
-  // Colección de usuarios
+  // --- REFERENCIAS A COLECCIONES ---
   CollectionReference<UserModel> get usersCollection => _db.collection('users').withConverter<UserModel>(
         fromFirestore: (snapshots, _) => UserModel.fromFirestore(snapshots),
         toFirestore: (user, _) => user.toFirestore(),
       );
 
-  // Colección de reportes de diagnóstico
   CollectionReference<DiagnosisReportModel> reportsCollection(String userId) =>
       _db.collection('users').doc(userId).collection('diagnosisReports').withConverter<DiagnosisReportModel>(
             fromFirestore: (snapshots, _) => DiagnosisReportModel.fromFirestore(snapshots),
             toFirestore: (report, _) => report.toFirestore(),
           );
 
-  // --- Operaciones de Usuario ---
+  // NUEVO: Referencia a la colección de clínicas
+  CollectionReference<ClinicModel> get clinicsCollection => _db.collection('clinics').withConverter<ClinicModel>(
+        fromFirestore: (snapshots, _) => ClinicModel.fromFirestore(snapshots),
+        // No necesitamos toFirestore si la app móvil solo lee las clínicas
+        toFirestore: (clinic, _) => throw UnimplementedError(), 
+      );
+
+  // --- OPERACIONES DE USUARIO (sin cambios) ---
   Future<void> setUserData(UserModel user) async {
     try {
       await usersCollection.doc(user.id).set(user, SetOptions(merge: true));
     } catch (e) {
-      // print('Error en setUserData: $e');
       throw Exception('Error al guardar datos del usuario: ${e.toString()}');
     }
   }
@@ -40,7 +46,6 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
-      // print('Error en getUserData: $e');
       throw Exception('Error al obtener datos del usuario: ${e.toString()}');
     }
   }
@@ -49,33 +54,15 @@ class FirestoreService {
      try {
       return usersCollection.doc(userId).snapshots().map((snapshot) => snapshot.data());
     } catch (e) {
-      // print('Error en streamUserData: $e');
       return Stream.error('Error al obtener datos del usuario en tiempo real: ${e.toString()}');
     }
   }
 
-
-  // --- Operaciones de Reporte de Diagnóstico ---
+  // --- OPERACIONES DE REPORTE DE DIAGNÓSTICO (sin cambios) ---
   Future<DocumentReference<DiagnosisReportModel>> addDiagnosisReport(String userId, DiagnosisReportModel report) async {
     try {
-      // Asegurarse que el createdAt se establece aquí si no se hizo antes
-      final reportWithTimestamp = report.createdAt.millisecondsSinceEpoch == 0 // Chequeo simple
-          ? DiagnosisReportModel(
-              id: report.id, // El ID se genera por Firestore, pero puede pasarse si ya existe
-              userId: userId,
-              createdAt: Timestamp.now(), // Establece el timestamp aquí
-              formData: report.formData,
-              images: report.images,
-              geminiPrompt: report.geminiPrompt,
-              geminiResponseRaw: report.geminiResponseRaw,
-              identifiedSigns: report.identifiedSigns,
-              recommendations: report.recommendations,
-              error: report.error,
-            )
-          : report;
-      return await reportsCollection(userId).add(reportWithTimestamp);
+      return await reportsCollection(userId).add(report);
     } catch (e) {
-      // print('Error en addDiagnosisReport: $e');
       throw Exception('Error al guardar el reporte de diagnóstico: ${e.toString()}');
     }
   }
@@ -87,7 +74,6 @@ class FirestoreService {
           .snapshots()
           .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
     } catch (e) {
-      // print('Error en streamDiagnosisReports: $e');
       return Stream.error('Error al obtener reportes de diagnóstico: ${e.toString()}');
     }
   }
@@ -96,16 +82,24 @@ class FirestoreService {
     try {
       await reportsCollection(userId).doc(reportId).delete();
     } catch (e) {
-      // print('Error en deleteDiagnosisReport: $e');
       throw Exception('Error al eliminar el reporte: ${e.toString()}');
+    }
+  }
+
+  // --- NUEVA OPERACIÓN DE CLÍNICAS ---
+  Future<List<ClinicModel>> getAllClinics() async {
+    try {
+      final snapshot = await clinicsCollection.get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Error al cargar las clínicas desde la base de datos: ${e.toString()}');
     }
   }
 }
 
-// Provider para FirebaseFirestore
+// PROVIDERS (sin cambios)
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
-// Provider para FirestoreService
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(ref.watch(firebaseFirestoreProvider));
 });

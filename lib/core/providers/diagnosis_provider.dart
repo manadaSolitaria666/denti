@@ -1,4 +1,4 @@
-// lib/core/providers/diagnosis_provider.dart
+// lib/core/providers/diagnosis_provider.dart (Corregido)
 import 'dart:io';
 import 'package:dental_ai_app/core/models/dental_image_model.dart';
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
@@ -7,10 +7,10 @@ import 'package:dental_ai_app/core/services/firestore_service.dart';
 import 'package:dental_ai_app/core/services/gemini_service.dart';
 import 'package:dental_ai_app/core/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:path/path.dart' as p; // No longer needed for image ID if using Uuid
-import 'package:uuid/uuid.dart'; // For generating IDs unique
+import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
+// La clase DiagnosisFlowState se mantiene igual
 class DiagnosisFlowState {
   final Map<String, dynamic> formData;
   final List<File> localImageFiles;
@@ -44,6 +44,7 @@ class DiagnosisFlowState {
   }
 }
 
+// El Notifier con el método corregido
 class DiagnosisNotifier extends StateNotifier<DiagnosisFlowState> {
   final GeminiService _geminiService;
   final StorageService _storageService;
@@ -69,7 +70,7 @@ class DiagnosisNotifier extends StateNotifier<DiagnosisFlowState> {
   }
 
   void clearTemporaryImageData() {
-    state = state.copyWith(localImageFiles: [], formData: {}); // Clear form data as well
+    state = state.copyWith(localImageFiles: [], formData: {});
   }
 
   void resetDiagnosisFlow() {
@@ -91,22 +92,22 @@ class DiagnosisNotifier extends StateNotifier<DiagnosisFlowState> {
 
     try {
       List<DentalImageModel> uploadedImageModels = [];
-      String diagnosisSessionId = _uuid.v4(); // Unique ID for this diagnostic session
+      String diagnosisSessionId = _uuid.v4();
 
       for (int i = 0; i < state.localImageFiles.length; i++) {
         final file = state.localImageFiles[i];
-        final angleDesc = state.formData['image_angle_description_$i'] ?? 'image_angle_unknown_$i';
+        final angleDesc = state.formData['image_angle_description_$i'] ?? 'image_unknown_angle_$i';
         
         final downloadUrl = await _storageService.uploadDentalImage(
           userId: userId,
           imageFile: file,
-          diagnosisId: diagnosisSessionId, // Used for organizing in storage
+          diagnosisId: diagnosisSessionId,
           angleDescription: angleDesc,
         );
         uploadedImageModels.add(DentalImageModel(
-          id: _uuid.v4(), // Unique ID for the image model itself
+          id: _uuid.v4(), 
           angleDescription: angleDesc,
-          localPath: file.path, // Not stored in Firestore, but part of the model
+          localPath: file.path,
           downloadUrl: downloadUrl,
         ));
       }
@@ -116,37 +117,39 @@ class DiagnosisNotifier extends StateNotifier<DiagnosisFlowState> {
         imageFiles: state.localImageFiles,
       );
 
-      // Create the report draft. ID will be empty initially.
-      final DiagnosisReportModel reportDraft = DiagnosisReportModel(
-        id: '', // Firestore will generate this upon adding the document
-        userId: userId,
-        createdAt: Timestamp.now(), // Set creation time
-        formData: state.formData,
-        images: uploadedImageModels, // List of image models with download URLs
-        geminiPrompt: geminiResult['fullPrompt'] ?? "Prompt no disponible",
-        geminiResponseRaw: geminiResult['rawResponse'] ?? "Respuesta cruda no disponible",
-        identifiedSigns: geminiResult['identifiedSigns'] ?? "No se identificaron signos.",
-        recommendations: geminiResult['recommendations'] ?? "No hay recomendaciones.",
-        error: geminiResult['error'], // This could be null if no error from Gemini
-      );
+      // Verificar si Gemini devolvió un error
+      if (geminiResult['error'] != null) {
+        throw Exception(geminiResult['error']);
+      }
 
-      // Add to Firestore, which returns a DocumentReference
+      // --- INICIO DE LA CORRECCIÓN ---
+      // Usar el nuevo factory constructor de DiagnosisReportModel para crear el reporte
+      // a partir de la respuesta estructurada de Gemini.
+      final DiagnosisReportModel reportDraft = DiagnosisReportModel.fromGeminiResponse(
+        geminiResult, // El mapa completo devuelto por GeminiService
+        userId: userId,
+        formData: state.formData,
+        images: uploadedImageModels,
+      );
+      // --- FIN DE LA CORRECCIÓN ---
+
       final docRef = await _firestoreService.addDiagnosisReport(userId, reportDraft);
       
-      // Create the final report object by updating the draft with the actual ID from Firestore.
-      // This relies on a correctly implemented `copyWith` in DiagnosisReportModel.
       final finalReport = reportDraft.copyWith(id: docRef.id); 
 
       state = state.copyWith(isLoading: false, currentGeneratedReport: finalReport);
-      return finalReport.id; // Return the ID of the created report
-    } catch (e) {
-      // print('Error en generateDiagnosisAndSaveReport: $e\n$stackTrace'); // For debugging
+      return finalReport.id;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error en generateDiagnosisAndSaveReport: $e\n$stackTrace');
+      }
       state = state.copyWith(isLoading: false, errorMessage: "Error al generar diagnóstico: ${e.toString()}");
       return null;
     }
   }
 }
 
+// Los providers se mantienen igual
 final diagnosisNotifierProvider = StateNotifierProvider<DiagnosisNotifier, DiagnosisFlowState>((ref) {
   return DiagnosisNotifier(
     ref.watch(geminiServiceProvider),
@@ -156,16 +159,14 @@ final diagnosisNotifierProvider = StateNotifierProvider<DiagnosisNotifier, Diagn
   );
 });
 
-// Provider for the stream of diagnosis history
 final diagnosisHistoryProvider = StreamProvider.autoDispose<List<DiagnosisReportModel>>((ref) {
   final userId = ref.watch(authStateChangesProvider).value?.uid;
   if (userId == null) {
-    return Stream.value([]); // Return an empty stream if no user is logged in
+    return Stream.value([]);
   }
   try {
     return ref.watch(firestoreServiceProvider).streamDiagnosisReports(userId);
   } catch (e) {
-    // print("Error in diagnosisHistoryProvider: $e");
     return Stream.error("Error al cargar historial: ${e.toString()}");
   }
 });

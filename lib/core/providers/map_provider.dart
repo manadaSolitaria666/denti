@@ -1,6 +1,7 @@
 // lib/core/providers/map_provider.dart
 import 'dart:async';
 import 'package:dental_ai_app/core/models/clinic_model.dart';
+import 'package:dental_ai_app/core/services/firestore_service.dart';
 import 'package:dental_ai_app/core/services/maps_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -15,7 +16,7 @@ class MapState {
   final CameraPosition? initialCameraPosition;
 
   MapState({
-    this.isLoadingLocation = false, // Inicia en false, se activa al llamar a fetch
+    this.isLoadingLocation = false,
     this.isLoadingClinics = false,
     this.currentUserLocation,
     this.nearbyClinics = const [],
@@ -49,12 +50,23 @@ class MapState {
 
 class MapNotifier extends StateNotifier<MapState> {
   final MapsService _mapsService;
+  final FirestoreService _firestoreService;
 
-  MapNotifier(this._mapsService) : super(MapState());
+  MapNotifier(this._mapsService, this._firestoreService) : super(MapState());
 
-  Future<void> fetchInitialLocationAndClinics() async {
+  Future<void> fetchClinics() async {
+    if (state.isLoadingClinics) return;
+    state = state.copyWith(isLoadingClinics: true, clearError: true);
+    try {
+      final clinics = await _firestoreService.getAllClinics();
+      state = state.copyWith(nearbyClinics: clinics, isLoadingClinics: false);
+    } catch (e) {
+      state = state.copyWith(isLoadingClinics: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> fetchUserLocation() async {
     if (state.isLoadingLocation) return;
-
     state = state.copyWith(isLoadingLocation: true, clearError: true);
     try {
       final position = await _mapsService.getCurrentLocation();
@@ -62,24 +74,11 @@ class MapNotifier extends StateNotifier<MapState> {
       
       state = state.copyWith(
         currentUserLocation: currentLocation,
-        initialCameraPosition: CameraPosition(target: currentLocation, zoom: 14.0),
+        initialCameraPosition: CameraPosition(target: currentLocation, zoom: 11.0),
         isLoadingLocation: false,
       );
-      await fetchNearbyClinics(currentLocation);
     } catch (e) {
       state = state.copyWith(isLoadingLocation: false, errorMessage: e.toString());
-    }
-  }
-
-  Future<void> fetchNearbyClinics(LatLng location, {double radius = 5000}) async {
-    if (state.isLoadingClinics) return;
-
-    state = state.copyWith(isLoadingClinics: true, clearError: true);
-    try {
-      final clinics = await _mapsService.findNearbyDentalClinics(location, radius: radius);
-      state = state.copyWith(nearbyClinics: clinics, isLoadingClinics: false);
-    } catch (e) {
-      state = state.copyWith(isLoadingClinics: false, errorMessage: e.toString());
     }
   }
 
@@ -90,9 +89,11 @@ class MapNotifier extends StateNotifier<MapState> {
       state = state.copyWith(selectedClinic: clinic);
     }
   }
-
 }
 
 final mapNotifierProvider = StateNotifierProvider<MapNotifier, MapState>((ref) {
-  return MapNotifier(ref.watch(mapsServiceProvider));
+  return MapNotifier(
+    ref.watch(mapsServiceProvider),
+    ref.watch(firestoreServiceProvider),
+  );
 });

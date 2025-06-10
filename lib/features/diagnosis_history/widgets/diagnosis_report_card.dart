@@ -1,7 +1,7 @@
-// lib/features/diagnosis_history/widgets/diagnosis_report_card.dart
+// lib/features/diagnosis_history/widgets/diagnosis_report_card.dart (Corregido)
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Para formatear fechas
+import 'package:intl/intl.dart';
 
 class DiagnosisReportCard extends StatelessWidget {
   final DiagnosisReportModel report;
@@ -13,36 +13,49 @@ class DiagnosisReportCard extends StatelessWidget {
     required this.onTap,
   });
 
+  // Widget helper para mostrar la severidad con un color distintivo
+  Widget _buildSeverityChip(BuildContext context, String severity) {
+    Color chipColor;
+    IconData iconData;
+
+    switch (severity.toLowerCase()) {
+      case 'urgente':
+        chipColor = Colors.red.shade700;
+        iconData = Icons.error_outline;
+        break;
+      case 'alto':
+        chipColor = Colors.orange.shade700;
+        iconData = Icons.warning_amber_rounded;
+        break;
+      case 'moderado':
+        chipColor = Colors.amber.shade700;
+        iconData = Icons.info_outline;
+        break;
+      case 'bajo':
+        chipColor = Colors.green.shade700;
+        iconData = Icons.check_circle_outline;
+        break;
+      default:
+        chipColor = Colors.grey.shade700;
+        iconData = Icons.help_outline;
+    }
+
+    return Chip(
+      avatar: Icon(iconData, color: Colors.white, size: 16),
+      label: Text(
+        severity.toUpperCase(),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+      backgroundColor: chipColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final DateFormat dateFormat = DateFormat('dd MMM yyyy, HH:mm');
     final String formattedDate = dateFormat.format(report.createdAt.toDate());
-
-    // Mostrar un resumen de los signos o un placeholder
-    String signsSummary = report.identifiedSigns.isNotEmpty
-        ? report.identifiedSigns
-        : "No se identificaron signos específicos.";
-    if (signsSummary.length > 100) {
-      signsSummary = "${signsSummary.substring(0, 97)}...";
-    }
-
-    // Determinar el color del ícono basado en si hubo un error en el reporte
-    IconData statusIcon = Icons.check_circle_outline;
-    Color statusColor = Colors.green.shade700;
-
-    if (report.error != null && report.error!.isNotEmpty) {
-      statusIcon = Icons.error_outline;
-      statusColor = Colors.red.shade700;
-    } else if (report.identifiedSigns.toLowerCase().contains("visitar") ||
-               report.recommendations.toLowerCase().contains("visitar") ||
-               report.identifiedSigns.toLowerCase().contains("dentista") ||
-               report.recommendations.toLowerCase().contains("dentista") ||
-               report.identifiedSigns.toLowerCase().contains("urgente") ||
-               report.recommendations.toLowerCase().contains("urgente")) {
-      statusIcon = Icons.warning_amber_rounded;
-      statusColor = Colors.orange.shade800;
-    }
-
 
     return Card(
       elevation: 3,
@@ -59,28 +72,23 @@ class DiagnosisReportCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Usa el nivel de severidad para el título/estado
+                  _buildSeverityChip(context, report.severityLevel),
                   Text(
-                    'Reporte: ${report.id.substring(0, 6)}...', // ID corto
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    formattedDate,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                   Icon(statusIcon, color: statusColor, size: 28),
                 ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Fecha: $formattedDate',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
               const Divider(height: 16),
               Text(
-                'Signos principales:',
+                'Resumen del Análisis:',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
+              // Usa el nuevo campo 'overallSummary'
               Text(
-                signsSummary,
+                report.overallSummary,
                 style: Theme.of(context).textTheme.bodyMedium,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -89,7 +97,7 @@ class DiagnosisReportCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Ver Detalles →',
+                  'Ver Detalles Completos →',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w600,

@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'package:dental_ai_app/core/models/clinic_model.dart';
 import 'package:dental_ai_app/core/providers/map_provider.dart';
-import 'package:dental_ai_app/features/map/widgets/clinic_info_panel_widget.dart'; 
+import 'package:dental_ai_app/features/map/widgets/clinic_info_panel_widget.dart';
 import 'package:dental_ai_app/features/map/widgets/clinic_map_marker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,10 +25,17 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Intentar cargar la ubicación y clínicas al iniciar la pantalla
-      // si los permisos ya están concedidos o se conceden ahora.
-      _checkLocationPermissionAndFetch();
+      _loadMapData();
     });
+  }
+
+  Future<void> _loadMapData() async {
+    // Solicitar permisos y obtener ubicación del usuario
+    await _checkLocationPermissionAndFetch();
+    // Una vez que la ubicación está (o no) disponible, cargar las clínicas desde Firestore
+    if (mounted) {
+      await ref.read(mapNotifierProvider.notifier).fetchClinics();
+    }
   }
   
   Future<void> _checkLocationPermissionAndFetch() async {
@@ -39,20 +46,17 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
       final requestedStatus = await Permission.location.request();
       if (!mounted) return;
       if (requestedStatus.isGranted) {
-        ref.read(mapNotifierProvider.notifier).fetchInitialLocationAndClinics();
+        await ref.read(mapNotifierProvider.notifier).fetchUserLocation();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Se requiere permiso de ubicación para encontrar clínicas cercanas.')),
+          const SnackBar(content: Text('Se requiere permiso de ubicación para mostrar el mapa.')),
         );
         if (requestedStatus.isPermanentlyDenied) _showPermissionDeniedDialog();
       }
     } else {
        final mapState = ref.read(mapNotifierProvider);
-       // CORRECCIÓN AQUÍ: Usar isLoadingLocation
        if (mapState.currentUserLocation == null && !mapState.isLoadingLocation) {
-         ref.read(mapNotifierProvider.notifier).fetchInitialLocationAndClinics();
-       } else if (mapState.currentUserLocation != null && mapState.nearbyClinics.isEmpty && !mapState.isLoadingClinics) {
-         ref.read(mapNotifierProvider.notifier).fetchNearbyClinics(mapState.currentUserLocation!);
+         await ref.read(mapNotifierProvider.notifier).fetchUserLocation();
        }
     }
   }
@@ -93,7 +97,7 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
           position: clinic.position,
           infoWindow: InfoWindow(
             title: clinic.name,
-            snippet: 'Rating: ${clinic.rating.toStringAsFixed(1)}',
+            snippet: 'Toca para ver detalles',
           ),
           onTap: () {
             ref.read(mapNotifierProvider.notifier).selectClinic(clinic);
@@ -126,17 +130,15 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
 
     ref.listen<ClinicModel?>(
       mapNotifierProvider.select((state) => state.selectedClinic),
-      (previousSelected, nextSelected) {
-        _updateMarkers(ref.read(mapNotifierProvider).nearbyClinics, selectedClinic: nextSelected);
+      (previous, next) {
+        _updateMarkers(ref.read(mapNotifierProvider).nearbyClinics, selectedClinic: next);
       }
     );
 
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Consultorios Cercanos'),
+        title: const Text('Clínicas y Consultorios'),
         actions: [
-          // Usar los flags específicos de carga
           if (mapState.isLoadingLocation || mapState.isLoadingClinics) 
             const Padding(
               padding: EdgeInsets.only(right: 16.0),
@@ -145,9 +147,7 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
           else
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: () {
-                ref.read(mapNotifierProvider.notifier).fetchInitialLocationAndClinics();
-              },
+              onPressed: _loadMapData,
               tooltip: 'Recargar Clínicas',
             ),
         ],

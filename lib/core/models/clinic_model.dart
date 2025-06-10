@@ -1,43 +1,57 @@
 // lib/core/models/clinic_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class ClinicModel extends Equatable {
-  final String id; // Podría ser el place_id de Google Places
+  final String id;
   final String name;
   final String address;
-  final LatLng position;
-  final double rating; // Rating de Google (ej. 4.5)
-  final String? phoneNumber;
+  final LatLng position; // Coordenadas para el mapa
+  final String? phone;
+  final String? email;
   final String? website;
-  // Otros campos que puedas obtener de la API de Google Places
+  final String? description;
+  final List<String> servicesOffered;
+  // Puedes añadir más campos como horarios, etc.
 
   const ClinicModel({
     required this.id,
     required this.name,
     required this.address,
     required this.position,
-    required this.rating,
-    this.phoneNumber,
+    this.phone,
+    this.email,
     this.website,
+    this.description,
+    this.servicesOffered = const [],
   });
 
-  // Este es un ejemplo, la estructura dependerá de la respuesta de la API de Google Places
-  factory ClinicModel.fromGooglePlacesJson(Map<String, dynamic> json) {
+  // Factory constructor para crear desde un DocumentSnapshot de Firestore
+  factory ClinicModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
+    
+    // Extraer el GeoPoint y convertirlo a LatLng
+    final geoPoint = data['location'] as GeoPoint? ?? const GeoPoint(0, 0);
+    final position = LatLng(geoPoint.latitude, geoPoint.longitude);
+
+    // Extraer la lista de servicios
+    final services = data['servicesOffered'] as List<dynamic>? ?? [];
+    final List<String> servicesList = services.map((service) => service.toString()).toList();
+
     return ClinicModel(
-      id: json['place_id'] as String,
-      name: json['name'] as String,
-      address: json['vicinity'] ?? json['formatted_address'] as String? ?? 'Dirección no disponible',
-      position: LatLng(
-        json['geometry']['location']['lat'] as double,
-        json['geometry']['location']['lng'] as double,
-      ),
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      phoneNumber: json['formatted_phone_number'] as String?,
-      website: json['website'] as String?,
+      id: doc.id,
+      name: data['name'] as String? ?? 'Nombre no disponible',
+      address: data['address'] as String? ?? 'Dirección no disponible',
+      position: position,
+      phone: data['phone'] as String?,
+      email: data['email'] as String?,
+      website: data['website'] as String?,
+      description: data['description'] as String?,
+      servicesOffered: servicesList,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, address, position, rating, phoneNumber, website];
+  List<Object?> get props => [id, name, address, position, phone, email, website, description, servicesOffered];
 }
