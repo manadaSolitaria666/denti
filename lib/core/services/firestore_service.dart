@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dental_ai_app/core/models/clinic_model.dart'; // <<<--- AÑADIR ESTA IMPORTACIÓN
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
 import 'package:dental_ai_app/core/models/user_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FirestoreService {
@@ -86,18 +87,22 @@ class FirestoreService {
     }
   }
 
-  // --- NUEVA OPERACIÓN DE CLÍNICAS ---
+  // --- OPERACIÓN DE CLÍNICAS ---
   Future<List<ClinicModel>> getAllClinics() async {
     try {
+      if (kDebugMode) print("[FirestoreService] Obteniendo clínicas...");
       final snapshot = await clinicsCollection.get();
-      return snapshot.docs.map((doc) => doc.data()).toList();
+      final clinics = snapshot.docs.map((doc) => doc.data()).toList();
+      if (kDebugMode) print("[FirestoreService] Se encontraron ${clinics.length} clínicas.");
+      return clinics;
     } catch (e) {
-      throw Exception('Error al cargar las clínicas desde la base de datos: ${e.toString()}');
+      if (kDebugMode) print("[FirestoreService] Error obteniendo clínicas: $e");
+      throw Exception('Error al cargar las clínicas desde la base de datos.');
     }
   }
 }
 
-// PROVIDERS (sin cambios)
+// PROVIDERS
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {

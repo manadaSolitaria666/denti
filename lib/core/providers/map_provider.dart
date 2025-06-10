@@ -1,8 +1,8 @@
-// lib/core/providers/map_provider.dart
-import 'dart:async';
+// lib/core/providers/map_provider.dart (Completo y Corregido)
 import 'package:dental_ai_app/core/models/clinic_model.dart';
 import 'package:dental_ai_app/core/services/firestore_service.dart';
 import 'package:dental_ai_app/core/services/maps_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -58,13 +58,16 @@ class MapNotifier extends StateNotifier<MapState> {
     if (state.isLoadingClinics) return;
     state = state.copyWith(isLoadingClinics: true, clearError: true);
     try {
+      if (kDebugMode) print("[MapNotifier] Llamando a FirestoreService para obtener clínicas...");
       final clinics = await _firestoreService.getAllClinics();
+      if (kDebugMode) print("[MapNotifier] Recibidas ${clinics.length} clínicas. Actualizando estado.");
       state = state.copyWith(nearbyClinics: clinics, isLoadingClinics: false);
     } catch (e) {
+      if (kDebugMode) print("[MapNotifier] Error en fetchClinics: $e");
       state = state.copyWith(isLoadingClinics: false, errorMessage: e.toString());
     }
   }
-
+  
   Future<void> fetchUserLocation() async {
     if (state.isLoadingLocation) return;
     state = state.copyWith(isLoadingLocation: true, clearError: true);

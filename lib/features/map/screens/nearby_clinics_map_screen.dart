@@ -1,9 +1,10 @@
-// lib/features/map/screens/nearby_clinics_map_screen.dart
+// lib/features/map/screens/nearby_clinics_map_screen.dart (Completo y Corregido)
 import 'dart:async';
 import 'package:dental_ai_app/core/models/clinic_model.dart';
 import 'package:dental_ai_app/core/providers/map_provider.dart';
 import 'package:dental_ai_app/features/map/widgets/clinic_info_panel_widget.dart';
 import 'package:dental_ai_app/features/map/widgets/clinic_map_marker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -30,9 +31,7 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
   }
 
   Future<void> _loadMapData() async {
-    // Solicitar permisos y obtener ubicación del usuario
     await _checkLocationPermissionAndFetch();
-    // Una vez que la ubicación está (o no) disponible, cargar las clínicas desde Firestore
     if (mounted) {
       await ref.read(mapNotifierProvider.notifier).fetchClinics();
     }
@@ -124,6 +123,7 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
     ref.listen<List<ClinicModel>>(
       mapNotifierProvider.select((state) => state.nearbyClinics),
       (previous, nextClinics) {
+        if (kDebugMode) print("[NearbyClinicsMapScreen] El listener detectó un cambio. Se recibieron ${nextClinics.length} clínicas. Actualizando marcadores...");
         _updateMarkers(nextClinics, selectedClinic: ref.read(mapNotifierProvider).selectedClinic);
       },
     );
@@ -154,31 +154,15 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
       ),
       body: Stack(
         children: [
-          if (mapState.errorMessage != null && mapState.initialCameraPosition == null)
+          if (mapState.initialCameraPosition == null)
             Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 50),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Error: ${mapState.errorMessage}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: _checkLocationPermissionAndFetch,
-                      child: const Text("Reintentar Cargar Ubicación")
-                    )
-                  ],
-                ),
-              ),
+              child: (mapState.errorMessage != null) 
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text('Error: ${mapState.errorMessage}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                  )
+                : const CircularProgressIndicator(semanticsLabel: "Cargando mapa...")
             )
-          else if (mapState.initialCameraPosition == null)
-            const Center(child: CircularProgressIndicator(semanticsLabel: "Cargando mapa..."))
           else
             GoogleMap(
               mapType: MapType.normal,
@@ -199,6 +183,22 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
               onTap: (_) { 
                 ref.read(mapNotifierProvider.notifier).selectClinic(null);
               },
+            ),
+          
+          // Nuevo: Mostrar mensaje si no se encontraron clínicas
+          if (!mapState.isLoadingClinics && mapState.nearbyClinics.isEmpty && mapState.errorMessage == null)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'No se encontraron clínicas.',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
             ),
           
           if (mapState.selectedClinic != null)
