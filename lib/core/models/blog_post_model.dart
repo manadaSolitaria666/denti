@@ -1,49 +1,42 @@
 // lib/core/models/blog_post_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 class BlogPostModel extends Equatable {
   final String id;
   final String title;
-  final String summary; // Un resumen corto
-  final String content; // Contenido completo (puede ser HTML o Markdown)
-  final String? imageUrl;
-  final DateTime publishedDate;
-  final String? videoUrl; // Opcional
+  final String content;
+  final String excerpt; // Resumen o extracto
+  final String? coverImageUrl;
+  final Timestamp createdAt;
+  final Timestamp updatedAt;
+  // Podrías añadir un modelo de autor si lo necesitas
+  // final Map<String, dynamic> author; 
 
   const BlogPostModel({
     required this.id,
     required this.title,
-    required this.summary,
     required this.content,
-    this.imageUrl,
-    required this.publishedDate,
-    this.videoUrl,
+    required this.excerpt,
+    this.coverImageUrl,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory BlogPostModel.fromJson(Map<String, dynamic> json) {
+  // Factory constructor para crear desde un DocumentSnapshot de Firestore
+  factory BlogPostModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
     return BlogPostModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      summary: json['summary'] as String,
-      content: json['content'] as String,
-      imageUrl: json['imageUrl'] as String?,
-      publishedDate: DateTime.parse(json['publishedDate'] as String),
-      videoUrl: json['videoUrl'] as String?,
+      id: doc.id,
+      title: data['title'] as String? ?? 'Sin Título',
+      content: data['content'] as String? ?? 'Contenido no disponible.',
+      excerpt: data['excerpt'] as String? ?? '',
+      coverImageUrl: data['coverImageUrl'] as String?,
+      createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
+      updatedAt: data['updatedAt'] as Timestamp? ?? Timestamp.now(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'summary': summary,
-      'content': content,
-      'imageUrl': imageUrl,
-      'publishedDate': publishedDate.toIso8601String(),
-      'videoUrl': videoUrl,
-    };
-  }
-
   @override
-  List<Object?> get props => [id, title, summary, content, imageUrl, publishedDate, videoUrl];
+  List<Object?> get props => [id, title, excerpt, coverImageUrl, createdAt];
 }

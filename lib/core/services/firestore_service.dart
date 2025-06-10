@@ -1,6 +1,7 @@
-// lib/core/services/firestore_service.dart (Actualizado)
+// lib/core/services/firestore_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dental_ai_app/core/models/clinic_model.dart'; // <<<--- AÑADIR ESTA IMPORTACIÓN
+import 'package:dental_ai_app/core/models/blog_post_model.dart';
+import 'package:dental_ai_app/core/models/clinic_model.dart';
 import 'package:dental_ai_app/core/models/diagnosis_report_model.dart';
 import 'package:dental_ai_app/core/models/user_model.dart';
 import 'package:flutter/foundation.dart';
@@ -23,14 +24,17 @@ class FirestoreService {
             toFirestore: (report, _) => report.toFirestore(),
           );
 
-  // NUEVO: Referencia a la colección de clínicas
   CollectionReference<ClinicModel> get clinicsCollection => _db.collection('clinics').withConverter<ClinicModel>(
         fromFirestore: (snapshots, _) => ClinicModel.fromFirestore(snapshots),
-        // No necesitamos toFirestore si la app móvil solo lee las clínicas
         toFirestore: (clinic, _) => throw UnimplementedError(), 
       );
 
-  // --- OPERACIONES DE USUARIO (sin cambios) ---
+  CollectionReference<BlogPostModel> get postsCollection => _db.collection('posts').withConverter<BlogPostModel>(
+        fromFirestore: (snapshots, _) => BlogPostModel.fromFirestore(snapshots),
+        toFirestore: (post, _) => throw UnimplementedError(),
+      ); 
+
+  // --- OPERACIONES DE USUARIO ---
   Future<void> setUserData(UserModel user) async {
     try {
       await usersCollection.doc(user.id).set(user, SetOptions(merge: true));
@@ -59,7 +63,7 @@ class FirestoreService {
     }
   }
 
-  // --- OPERACIONES DE REPORTE DE DIAGNÓSTICO (sin cambios) ---
+  // --- OPERACIONES DE REPORTE DE DIAGNÓSTICO ---
   Future<DocumentReference<DiagnosisReportModel>> addDiagnosisReport(String userId, DiagnosisReportModel report) async {
     try {
       return await reportsCollection(userId).add(report);
@@ -87,6 +91,25 @@ class FirestoreService {
     }
   }
 
+  // --- OPERACIONES DEL BLOG ---
+  Future<List<BlogPostModel>> getAllPosts() async {
+    try {
+      final snapshot = await postsCollection.orderBy('createdAt', descending: true).get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Error al cargar los posts del blog: ${e.toString()}');
+    }
+  }
+
+  Future<BlogPostModel?> getPostById(String postId) async {
+    try {
+      final docSnapshot = await postsCollection.doc(postId).get();
+      return docSnapshot.data();
+    } catch (e) {
+      throw Exception('Error al cargar el post: ${e.toString()}');
+    }
+  }
+  
   // --- OPERACIÓN DE CLÍNICAS ---
   Future<List<ClinicModel>> getAllClinics() async {
     try {
@@ -100,7 +123,7 @@ class FirestoreService {
       throw Exception('Error al cargar las clínicas desde la base de datos.');
     }
   }
-}
+} // <<<--- ESTA ES LA LLAVE DE CIERRE CORRECTA PARA LA CLASE
 
 // PROVIDERS
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
