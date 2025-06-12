@@ -165,7 +165,7 @@ class AppTheme {
         fillColor: Colors.grey.shade800.withOpacity(0.5), // Fondo sutil para campos de texto
         filled: true,
       ),
-       cardTheme: CardTheme(
+       cardTheme: CardTheme(//error jovany
         elevation: 2.0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
