@@ -171,7 +171,7 @@ class AppTheme {
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
         color: const Color(0xFF2A2A2A), // Color de tarjeta más oscuro
       ),
-      // Define más personalizaciones de tema aquí
+      // Define más personalizaciones de tema aquí jovaAYYYYYY CAMBION ERROR
     );
   }
 }
