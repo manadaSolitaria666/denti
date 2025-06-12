@@ -1,10 +1,11 @@
 // lib/core/navigation/app_router.dart
 import 'dart:async';
 import 'package:dental_ai_app/core/models/blog_post_model.dart';
+import 'package:dental_ai_app/core/models/user_model.dart';
+import 'package:dental_ai_app/core/providers/auth_provider.dart'; 
 import 'package:dental_ai_app/core/providers/user_data_provider.dart'; 
 import 'package:dental_ai_app/core/services/auth_service.dart';
-import 'package:dental_ai_app/features/auth/screens/login_screen.dart';
-import 'package:dental_ai_app/features/auth/screens/register_screen.dart';
+import 'package:dental_ai_app/features/auth/screens/auth_screen.dart'; // Importa la nueva pantalla
 import 'package:dental_ai_app/features/auth/screens/user_details_screen.dart';
 import 'package:dental_ai_app/features/blog/screens/blog_detail_screen.dart';
 import 'package:dental_ai_app/features/blog/screens/blog_list_screen.dart';
@@ -13,13 +14,12 @@ import 'package:dental_ai_app/features/diagnosis/screens/diagnosis_result_screen
 import 'package:dental_ai_app/features/diagnosis/screens/image_capture_guide_screen.dart';
 import 'package:dental_ai_app/features/home/screens/home_screen.dart';
 import 'package:dental_ai_app/features/map/screens/nearby_clinics_map_screen.dart';
-import 'package:dental_ai_app/features/user_profile/screens/UserProfileScreen.dart'; // Nueva pantalla principal
+import 'package:dental_ai_app/features/user_profile/screens/UserProfileScreen.dart';
 import 'package:dental_ai_app/widgets/bottom_nav_bar.dart';
 import 'package:dental_ai_app/widgets/loading_spinner.dart'; 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dental_ai_app/core/models/user_model.dart'; 
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -35,18 +35,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final bool isLoggedIn = authStateChangesValue.value != null;
       final String currentLocation = state.matchedLocation;
-       if (currentLocation == AppRoutes.splashPath) {
+
+      if (currentLocation == AppRoutes.splashPath) {
         if (authStateChangesValue is AsyncLoading) return null; 
         if (!isLoggedIn) return AppRoutes.loginPath;
         if (userProfileState is AsyncLoading) return null; 
+        
         final UserModel? profile = userProfileState.asData?.value;
         if (profile == null || profile.name == null || profile.name!.isEmpty || !profile.termsAccepted) {
           return AppRoutes.userDetailsPath;
         }
         return AppRoutes.homePath;
       }
-      final bool onAuthRoute = currentLocation == AppRoutes.loginPath || currentLocation == AppRoutes.registerPath;
-      if (!isLoggedIn && !onAuthRoute) return AppRoutes.loginPath;
+
+      final bool onAuthRoute = currentLocation == AppRoutes.loginPath;
+
+      if (!isLoggedIn && !onAuthRoute) {
+        return AppRoutes.loginPath;
+      }
+
       if (isLoggedIn && onAuthRoute) {
         if (userProfileState is AsyncLoading) return null; 
         final UserModel? profile = userProfileState.asData?.value;
@@ -55,6 +62,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         }
         return AppRoutes.homePath;
       }
+      
       if (isLoggedIn && currentLocation == AppRoutes.userDetailsPath) {
         if (userProfileState is AsyncLoading) return null; 
         final UserModel? profile = userProfileState.asData?.value;
@@ -62,6 +70,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return AppRoutes.homePath;
         }
       }
+      
       if (isLoggedIn && 
           currentLocation != AppRoutes.userDetailsPath && 
           !onAuthRoute && 
@@ -73,21 +82,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             }
         }
       }
-      return null;
+
+      return null; 
     },
 
     routes: <RouteBase>[
-      GoRoute(path: AppRoutes.splashPath, name: AppRoutes.splash, builder: (context, state) => const Scaffold(body: LoadingSpinner(message: "Cargando..."))),
-      GoRoute(path: AppRoutes.loginPath, name: AppRoutes.login, builder: (context, state) => const LoginScreen()),
-      GoRoute(path: AppRoutes.registerPath, name: AppRoutes.register, builder: (context, state) => const RegisterScreen()),
-      GoRoute(path: AppRoutes.userDetailsPath, name: AppRoutes.userDetails, builder: (context, state) => const UserDetailsScreen()),
+      GoRoute(
+        path: AppRoutes.splashPath,
+        name: AppRoutes.splash,
+        builder: (context, state) => const Scaffold(body: LoadingSpinner(message: "Cargando...")),
+      ),
+      GoRoute(
+        path: AppRoutes.loginPath,
+        name: AppRoutes.login,
+        builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.userDetailsPath,
+        name: AppRoutes.userDetails,
+        builder: (context, state) => const UserDetailsScreen(),
+      ),
 
       ShellRoute(
         builder: (context, state, child) {
           return BottomNavBarScaffold(child: child);
         },
         routes: <RouteBase>[
-          // Pestaña 1: Inicio
           GoRoute(
             path: AppRoutes.homePath,
             name: AppRoutes.home,
@@ -98,8 +118,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute( path: '${AppRoutes.diagnosisResultPath}/:reportId', name: AppRoutes.diagnosisResult, parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => DiagnosisResultScreen(reportId: state.pathParameters['reportId']!)),
             ]
           ),
-          
-          // Pestaña 2: Blog
           GoRoute(
             path: AppRoutes.blogListPath,
             name: AppRoutes.blogList,
@@ -117,22 +135,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ]
           ),
-          
-          // Pestaña 3: Mapa
           GoRoute(
             path: AppRoutes.nearbyClinicsMapPath,
             name: AppRoutes.nearbyClinicsMap,
             pageBuilder: (context, state) => const NoTransitionPage(child: NearbyClinicsMapScreen()),
           ),
-          
-          // Pestaña 4: NUEVA RUTA DE USUARIO
           GoRoute(
             path: AppRoutes.userProfilePath,
             name: AppRoutes.userProfile,
             pageBuilder: (context, state) => const NoTransitionPage(child: UserProfileScreen()),
             routes: [
                GoRoute(
-                // La ruta para ver el detalle de un diagnóstico desde el historial
                 path: '${AppRoutes.diagnosisDetailPath}/:reportId',
                 name: AppRoutes.diagnosisDetail,
                 parentNavigatorKey: _rootNavigatorKey,
@@ -156,14 +169,13 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() { _subscription.cancel(); super.dispose(); }
 }
 
-// Clase AppRoutes actualizada
 class AppRoutes {
   static const String splash = 'splash';
   static const String splashPath = '/splash';
   static const String login = 'login';
   static const String loginPath = '/login';
-  static const String register = 'register';
-  static const String registerPath = '/register';
+  // static const String register = 'register'; // Ya no se necesita
+  // static const String registerPath = '/register'; // Ya no se necesita
   static const String userDetails = 'userDetails';
   static const String userDetailsPath = '/user-details';
   static const String home = 'home';
@@ -180,11 +192,8 @@ class AppRoutes {
   static const String blogDetailPath = 'post';
   static const String nearbyClinicsMap = 'nearbyClinicsMap';
   static const String nearbyClinicsMapPath = '/map';
-
-  // Nuevas y eliminadas rutas
   static const String userProfile = 'userProfile';
-  static const String userProfilePath = '/profile'; // Nueva ruta para la pestaña de Usuario
-  
+  static const String userProfilePath = '/profile';
   static const String diagnosisDetail = 'diagnosisDetail';
-  static const String diagnosisDetailPath = 'history-detail'; // Nueva ruta anidada para /profile
+  static const String diagnosisDetailPath = 'history-detail';
 }
