@@ -85,12 +85,6 @@ class AppTheme {
         labelStyle: const TextStyle(color: _primaryColor),
       ),
 
-      cardTheme: CardTheme(
-        elevation: 2.0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-      ),
-
       // Define más personalizaciones de tema aquí
     );
   }
@@ -165,12 +159,7 @@ class AppTheme {
         fillColor: Colors.grey.shade800.withOpacity(0.5), // Fondo sutil para campos de texto
         filled: true,
       ),
-       cardTheme: CardTheme(
-        elevation: 2.0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-        color: const Color(0xFF2A2A2A), // Color de tarjeta más oscuro
-      ),
+      
       // Define más personalizaciones de tema aquí
     );
   }
