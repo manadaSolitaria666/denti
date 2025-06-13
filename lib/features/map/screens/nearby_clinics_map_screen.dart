@@ -1,10 +1,10 @@
-// lib/features/map/screens/nearby_clinics_map_screen.dart (Completo y Corregido)
+// lib/features/map/screens/nearby_clinics_map_screen.dart (Sin Cambios)
 import 'dart:async';
 import 'package:dental_ai_app/core/models/clinic_model.dart';
 import 'package:dental_ai_app/core/providers/map_provider.dart';
+import 'package:dental_ai_app/core/providers/user_data_provider.dart';
 import 'package:dental_ai_app/features/map/widgets/clinic_info_panel_widget.dart';
 import 'package:dental_ai_app/features/map/widgets/clinic_map_marker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -119,11 +119,11 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapNotifierProvider);
+    final currentUser = ref.watch(currentUserProfileProvider);
 
     ref.listen<List<ClinicModel>>(
       mapNotifierProvider.select((state) => state.nearbyClinics),
       (previous, nextClinics) {
-        if (kDebugMode) print("[NearbyClinicsMapScreen] El listener detectó un cambio. Se recibieron ${nextClinics.length} clínicas. Actualizando marcadores...");
         _updateMarkers(nextClinics, selectedClinic: ref.read(mapNotifierProvider).selectedClinic);
       },
     );
@@ -185,7 +185,6 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
               },
             ),
           
-          // Nuevo: Mostrar mensaje si no se encontraron clínicas
           if (!mapState.isLoadingClinics && mapState.nearbyClinics.isEmpty && mapState.errorMessage == null)
             Center(
               child: Container(
@@ -202,21 +201,17 @@ class _NearbyClinicsMapScreenState extends ConsumerState<NearbyClinicsMapScreen>
             ),
           
           if (mapState.selectedClinic != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ClinicInfoPanelWidget(
-                clinic: mapState.selectedClinic!,
-                onClose: () {
-                  ref.read(mapNotifierProvider.notifier).selectClinic(null);
-                },
-              ),
+            ClinicInfoPanelWidget(
+              clinic: mapState.selectedClinic!,
+              currentUser: currentUser, 
+              onClose: () {
+                ref.read(mapNotifierProvider.notifier).selectClinic(null);
+              },
             ),
           
           if (mapState.currentUserLocation != null && _mapController != null)
             Positioned(
-              bottom: (mapState.selectedClinic != null ? MediaQuery.of(context).size.height * 0.3 + 20 : 20) + (MediaQuery.of(context).padding.bottom > 0 ? 0 : 20),
+              bottom: (mapState.selectedClinic != null ? MediaQuery.of(context).size.height * 0.4 + 20 : 20) + (MediaQuery.of(context).padding.bottom > 0 ? 0 : 20),
               right: 20,
               child: FloatingActionButton.small(
                 heroTag: "center_location_fab", 

@@ -1,20 +1,20 @@
-// lib/core/models/clinic_model.dart (Corregido para manejar GeoPoint y Map)
+// lib/core/models/clinic_model.dart (Corregido para manejar GeoPoint y tipos de datos inconsistentes)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter/foundation.dart'; // Para kDebugMode
+import 'package:flutter/foundation.dart';
 
 class ClinicModel extends Equatable {
   final String id;
   final String name;
   final String address;
-  final LatLng position; // Coordenadas para el mapa
+  final LatLng position;
   final String? phone;
   final String? email;
   final String? website;
   final String? description;
   final List<String> servicesOffered;
-  final String? operatingHours; // Nuevo campo para horarios
+  final String? operatingHours;
 
   const ClinicModel({
     required this.id,
@@ -29,7 +29,6 @@ class ClinicModel extends Equatable {
     this.operatingHours,
   });
 
-  // Factory constructor para crear desde un DocumentSnapshot de Firestore
   factory ClinicModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
     
@@ -53,25 +52,28 @@ class ClinicModel extends Equatable {
       position = const LatLng(0, 0);
     }
     
-    // Extraer la lista de servicios jova!!
+    // --- Manejo robusto de la lista de servicios ---
     final services = data['servicesOffered'] as List<dynamic>? ?? [];
     final List<String> servicesList = services.map((service) => service.toString()).toList();
 
     return ClinicModel(
       id: doc.id,
+      // --- INICIO DE LA CORRECCIÓN: Conversión segura a String ---
+      // Usar ?.toString() asegura que el valor se convierta a String sin importar
+      // si en Firestore es un número o un texto, evitando errores de tipo.
       name: data['name']?.toString() ?? 'Nombre no disponible',
       address: data['address']?.toString() ?? 'Dirección no disponible',
       position: position,
-      // CORRECCIÓN: Conversión segura a String para todos los campos de texto
       phone: data['phone']?.toString(),
       email: data['email']?.toString(),
       website: data['website']?.toString(),
       description: data['description']?.toString(),
       servicesOffered: servicesList,
       operatingHours: data['operatingHours_monday']?.toString(), // Mapeo del nuevo campo de horario
+      // --- FIN DE LA CORRECCIÓN ---
     );
   }
-  //jovany
+
   @override
   List<Object?> get props => [id, name, address, position, phone, email, website, description, servicesOffered, operatingHours];
 }
