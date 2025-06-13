@@ -75,6 +75,10 @@ dependencies:
   uuid: ^4.3.3
   carousel_slider: 5.0.0
   flutter_launcher_icons: ^0.13.1
+  font_awesome_flutter: ^10.8.0
+
+  #sign google
+  google_sign_in: ^6.3.0
 
 flutter_launcher_icons:
   android: true  # Generar íconos para Android

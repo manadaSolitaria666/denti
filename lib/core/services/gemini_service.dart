@@ -1,6 +1,5 @@
 // lib/core/services/gemini_service.dart
 import 'dart:convert';
-import 'package:dental_ai_app/core/utils/dart_convert_fix.dart';
 import 'dart:io';
 import 'package:dental_ai_app/core/constants/api_constants.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';

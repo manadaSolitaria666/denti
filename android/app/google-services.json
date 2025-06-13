@@ -12,7 +12,28 @@
           "package_name": "com.example.dental_ai_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "512447164362-15hdnih6i3rcmkf9gh12vbkqpfa8eeh9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.dental_ai_app",
+            "certificate_hash": "7de288cccf1822358311426157af50b93465e169"
+          }
+        },
+        {
+          "client_id": "512447164362-ealljfimteqn5ghqv8d96973gj974ero.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.dental_ai_app",
+            "certificate_hash": "ef84036e53493133c8cab50599aa8023b1e0f543"
+          }
+        },
+        {
+          "client_id": "512447164362-dtr1eg8jjup39r4u0jpu1hdb08v5f1ki.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDYkPzkMNd6dWS4PMRE_FUsbyP-UCC2R54"
@@ -20,7 +41,63 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "512447164362-dtr1eg8jjup39r4u0jpu1hdb08v5f1ki.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "512447164362-vsf8tjtr7657t677mtphnjiqcc8betkf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.dentiApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512447164362:android:64a24da6f4a77f77a62933",
+        "android_client_info": {
+          "package_name": "com.example.denti_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "512447164362-1jt884qqkgkpdof67jniuvs46lp6u9nq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.denti_app",
+            "certificate_hash": "7de288cccf1822358311426157af50b93465e169"
+          }
+        },
+        {
+          "client_id": "512447164362-dtr1eg8jjup39r4u0jpu1hdb08v5f1ki.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYkPzkMNd6dWS4PMRE_FUsbyP-UCC2R54"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "512447164362-dtr1eg8jjup39r4u0jpu1hdb08v5f1ki.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "512447164362-vsf8tjtr7657t677mtphnjiqcc8betkf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.dentiApp"
+              }
+            }
+          ]
         }
       }
     }
