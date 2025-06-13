@@ -52,6 +52,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     }
   }
+  
+  // Lógica para el botón de Google
+  Future<void> _googleSignIn() async {
+    try {
+      await ref.read(authNotifierProvider.notifier).googleSignIn();
+      // GoRouter se encargará de la redirección
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst("Exception: ", "")),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +176,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 _buildSocialButton(
                   icon: FontAwesomeIcons.google,
                   text: "Continuar con Google",
-                  onPressed: () { /* TODO: Implementar lógica de Google Sign-In */ },
+                  onPressed: isLoading ? null : _googleSignIn, // Conectado
                 ),
                 const SizedBox(height: 12),
                 _buildSocialButton(
@@ -167,7 +184,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   text: "Continuar con Apple",
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
-                  onPressed: () { /* TODO: Implementar lógica de Apple Sign-In */ },
+                  onPressed: isLoading ? null : () { /* TODO: Implementar Apple Sign-In */ },
                 ),
                 const SizedBox(height: 40),
 
@@ -226,7 +243,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget _buildSocialButton({
     required IconData icon,
     required String text,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     Color? backgroundColor,
     Color? foregroundColor,
   }) {
